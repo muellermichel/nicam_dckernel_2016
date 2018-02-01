@@ -23,3 +23,12 @@ If your installing platform is covered by one of these Makedef.* files,
 then simply set NICAM_SYS environment variable using the chosen value,
 
 If your testing platform is NOT covered by above Makedef.* files, please create the necessary Makedef files.
+
+Compile each benchmark using its own Makefile in [benchmark-dir]/src
+
+Running
+-------
+
+1.) Run ./download.sh in [benchmark-dir]/data
+
+2.) Submit run-[system].sh to your cluster submission system
