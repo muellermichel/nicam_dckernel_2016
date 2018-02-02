@@ -108,6 +108,10 @@ program physicskernel_microphysics
 
   write(*,*) "[KERNEL] physicskernel_microphysics"
   write(*,*) "*** Start  initialize"
+  write(*,*) "grid: ", ADM_gall_in, ADM_kall, ADM_lall
+#if defined _OPENMP
+  write(*,*) "_OPENMP: ", _OPENMP
+#endif
 
   allocate( work1(ADM_gall_in_orig,ADM_kall,ADM_lall)          )
   allocate( work2(ADM_gall_in_orig,ADM_kall,TRC_VMAX,ADM_lall) )
