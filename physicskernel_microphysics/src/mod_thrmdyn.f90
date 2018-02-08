@@ -418,16 +418,16 @@ contains
     Rdry = CONST_Rdry
     Rvap = CONST_Rvap
 
+    !$acc kernels pcopy(rho) pcopyin(pre,tem,qd,q) async(0)
     !$omp parallel do default(none),private(ij,k), &
     !$omp shared(ijdim,kdim,rho,pre,tem,qd,q,Rdry,Rvap,I_QV)
-    !$acc kernels pcopy(rho) pcopyin(pre,tem,qd,q) async(0)
     do k  = 1, kdim
     do ij = 1, ijdim
        rho(ij,k) = pre(ij,k) / ( ( qd(ij,k)*Rdry + q(ij,k,I_QV)*Rvap ) * tem(ij,k) )
     enddo
     enddo
-    !$acc end kernels
     !$omp end parallel do
+    !$acc end kernels
 
     return
   end subroutine THRMDYN_rho_ijk
@@ -466,16 +466,16 @@ contains
     Rdry = CONST_Rdry
     Rvap = CONST_Rvap
 
+    !$acc kernels pcopy(pre) pcopyin(rho,tem,qd,q) async(0)
     !$omp parallel do default(none),private(ij,k), &
     !$omp shared(ijdim,kdim,pre,rho,tem,qd,q,Rdry,Rvap,I_QV)
-    !$acc kernels pcopy(pre) pcopyin(rho,tem,qd,q) async(0)
     do k  = 1, kdim
     do ij = 1, ijdim
        pre(ij,k) = rho(ij,k) * tem(ij,k) * ( qd(ij,k)*Rdry + q(ij,k,I_QV)*Rvap )
     enddo
     enddo
-    !$acc end kernels
     !$omp end parallel do
+    !$acc end kernels
 
     return
   end subroutine THRMDYN_pre_ijk
@@ -674,16 +674,16 @@ contains
     RovCP = CONST_Rdry / CONST_CPdry
     PRE00 = CONST_PRE00
 
+    !$acc kernels pcopy(th) pcopyin(tem,pre) async(0)
     !$omp parallel do default(none),private(ij,k), &
     !$omp shared(ijdim,kdim,th,tem,pre,RovCP,PRE00)
-    !$acc kernels pcopy(th) pcopyin(tem,pre) async(0)
     do k  = 1, kdim
     do ij = 1, ijdim
        th(ij,k) = tem(ij,k) * ( PRE00 / pre(ij,k) )**RovCP
     enddo
     enddo
-    !$acc end kernels
     !$omp end parallel do
+    !$acc end kernels
 
     return
   end subroutine THRMDYN_th_ijk
@@ -718,9 +718,9 @@ contains
     RovCP = CONST_Rdry / CONST_CPdry
     PRE00 = CONST_PRE00
 
+    !$acc kernels pcopy(th) pcopyin(tem,pre) async(0)
     !$omp parallel do default(none),private(ij,k,l), &
     !$omp shared(ijdim,kdim,ldim,th,tem,pre,RovCP,PRE00)
-    !$acc kernels pcopy(th) pcopyin(tem,pre) async(0)
     do l  = 1, ldim
     do k  = 1, kdim
     do ij = 1, ijdim
@@ -728,8 +728,8 @@ contains
     enddo
     enddo
     enddo
-    !$acc end kernels
     !$omp end parallel do
+    !$acc end kernels
 
     return
   end subroutine THRMDYN_th_ijkl
@@ -755,16 +755,16 @@ contains
     integer :: ij, k
     !---------------------------------------------------------------------------
 
+    !$acc kernels pcopy(eth) pcopyin(ein,pre,rho) async(0)
     !$omp parallel do default(none),private(ij,k), &
     !$omp shared(ijdim,kdim,eth,ein,pre,rho)
-    !$acc kernels pcopy(eth) pcopyin(ein,pre,rho) async(0)
     do k  = 1, kdim
     do ij = 1, ijdim
        eth(ij,k) = ein(ij,k) + pre(ij,k) / rho(ij,k)
     enddo
     enddo
-    !$acc end kernels
     !$omp end parallel do
+    !$acc end kernels
 
     return
   end subroutine THRMDYN_eth_ijk
@@ -792,9 +792,9 @@ contains
     integer :: ij, k, l
     !---------------------------------------------------------------------------
 
+    !$acc kernels pcopy(eth) pcopyin(ein,pre,rho) async(0)
     !$omp parallel do default(none),private(ij,k,l), &
     !$omp shared(ijdim,kdim,ldim,eth,ein,pre,rho)
-    !$acc kernels pcopy(eth) pcopyin(ein,pre,rho) async(0)
     do l  = 1, ldim
     do k  = 1, kdim
     do ij = 1, ijdim
@@ -802,8 +802,8 @@ contains
     enddo
     enddo
     enddo
-    !$acc end kernels
     !$omp end parallel do
+    !$acc end kernels
 
     return
   end subroutine THRMDYN_eth_ijkl
@@ -879,8 +879,8 @@ contains
     !$omp shared(ijdim,kdim,nq,NQW_STR,NQW_END,ent,tem,pre,qd,q,      &
     !$omp        LH,CVW,CPdry,Rdry,Rvap,TEM00,PRE00,PSAT0,EPSvap,I_QV)
 
-    !$omp do
     !$acc kernels pcopy(ent) pcopyin(tem,pre,qd,q) async(0)
+    !$omp do
     do k  = 1, kdim
     do ij = 1, ijdim
        Pdry = max( pre(ij,k) * EPSvap*qd(ij,k) / ( EPSvap*qd(ij,k) + q(ij,k,I_QV) ), EPS )
@@ -891,8 +891,8 @@ contains
                  - q (ij,k,I_QV) * Rvap  * log( Pvap     /PSAT0 )
     enddo
     enddo
-    !$acc end kernels
     !$omp end do
+    !$acc end kernels
 
     do nq = NQW_STR, NQW_END
        !$omp do

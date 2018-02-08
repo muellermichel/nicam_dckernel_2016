@@ -114,6 +114,7 @@ module mod_debug
   !-----------------------------------------------------------------------------
 contains
   !-----------------------------------------------------------------------------
+  @scheme{name(HOST_ONLY)}
   !> setup
   subroutine PROF_setup
 !ESC!    use mod_adm, only: &
@@ -990,5 +991,5 @@ contains
 
     return
   end subroutine cnvvar_rhogkin_in
-
+  @end scheme
 end module mod_debug

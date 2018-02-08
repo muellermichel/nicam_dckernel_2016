@@ -1,0 +1,54 @@
+#
+# ------ FOR Linux 64bit & intel fortran&C & intel mpi -----
+#
+
+FC_INTEL     = mpiifort
+FC_PGI       = mpif90
+
+FFLAGS_PRODUCTION_INTEL = -fpp -m64 -march=core-avx2 -O3 -xHost \
+               -assume byterecl -convert big_endian \
+               -fp-model source                     \
+               -mcmodel=medium -heap-arrays
+
+FFLAGS_DEBUG_INTEL = -fpp -m64 -O0                        \
+               -assume byterecl -convert big_endian  \
+               -fpe0 -fp-model source                \
+               -check bounds -warn all -g -traceback \
+               -mcmodel=medium -heap-arrays
+
+FFLAGS_BASIC_PGI = -Mpreprocess -byteswapio -acc -Mcuda=9.0,cc60,maxregcount:80 -ta=tesla:cc60 -DUSE_MPI
+FFLAGS_OPT_PGI = -O3 -Munroll
+FFLAGS_DEBUG_PGI = -g -O0 -Mchkptr -Mbounds -Kieee
+
+ifdef DEBUG
+	FFLAGS_INTEL=${FFLAGS_DEBUG_INTEL}
+     FFLAGS_PGI=${FFLAGS_BASIC_PGI} ${FFLAGS_DEBUG_PGI}
+else
+	FFLAGS_INTEL=${FFLAGS_PRODUCTION_INTEL}
+     FFLAGS_PGI=${FFLAGS_BASIC_PGI} ${FFLAGS_OPT_PGI}
+endif
+
+##### Special Options #####
+ifeq ($(ENABLE_OPENMP),T)
+	FFLAGS_INTEL += -qopenmp
+     FFLAGS_PGI += -mp
+endif
+###########################
+
+######### Compiler flags ###############################################
+FFLAG_PGI= -byteswapio -r8 -mp -DUSE_MPI
+GPU_FLAG_PGI= -acc -Mcuda=9.0,cc60,lineinfo,maxregcount:80 -ta=tesla:cc60,keepgpu,keepbin
+#Please note: -Mbounds leads to compiler errors in PGI 15.x with GPU+MPI compilations of ASUCA, unrelated to bounds checking, i.e. it seems buggy in some versionf of PGI ; PGI 16.5 so far didn't show this problem
+DEBUG_FLAG_PGI= -g -O0 -mp -Mchkptr -Mbounds -Kieee
+DEBUG_GPU_FLAG_PGI= -Minfo=accel,inline,ipa -Mneginfo -Minform=inform
+
+######### Linker flags #################################################
+LDFLAG_PGI= -byteswapio
+GPU_LDFLAG_PGI= -acc -Mcuda=9.0,cc60,lineinfo -ta=tesla:cc60
+DEBUG_LDFLAG_PGI= -g -O0
+DEBUG_GPU_LDFLAG_PGI= -Minfo=accel,inline -Mneginfo
+
+######### Optimization flags ##########################################
+#OPT_PGI= -O3 -Minline=levels:4,reshape -Mnovect -Munroll -Mlre -Mflushz -Mnoframe -Mnontemporal
+#OPT_PGI= -O0
+OPT_PGI= -O2

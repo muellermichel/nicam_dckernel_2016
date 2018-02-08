@@ -5,13 +5,13 @@
 FFLAGS_PRODUCTION = -fpp -m64 -march=core-avx2 -O3 -xHost \
                -assume byterecl -convert big_endian \
                -fp-model source                     \
-               -mcmodel=medium -heap-arrays
+               -mcmodel=medium -heap-arrays -DUSE_MPI
 
 FFLAGS_DEBUG = -fpp -m64 -O0                        \
                -assume byterecl -convert big_endian  \
                -fpe0 -fp-model source                \
                -check bounds -warn all -g -traceback \
-               -mcmodel=medium -heap-arrays
+               -mcmodel=medium -heap-arrays -DUSE_MPI
 
 FC     = mpiifort
 
