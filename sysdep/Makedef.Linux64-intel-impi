@@ -2,7 +2,7 @@
 # ------ FOR Linux 64bit & intel fortran&C & intel mpi -----
 #
 
-FFLAGS_PRODUCTION = -fpp -m64 -O3 -xHost           \
+FFLAGS_PRODUCTION = -fpp -m64 -march=core-avx2 -O3 -xHost \
                -assume byterecl -convert big_endian \
                -fp-model source                     \
                -mcmodel=medium -heap-arrays
