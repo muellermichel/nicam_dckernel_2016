@@ -28,7 +28,7 @@ include ./MakesettingsGeneral
 include ./Makesettings
 include ${TOOLSDIR}MakefileForCompilationCommon
 
-time_profiling.o: helper_functions.o
+helper_functions.o: time_profiling.o
 helper_functions_gpu.o: helper_functions.o
 
 # ADD YOUR DEPENDENCIES BELOW THIS LINE
@@ -45,7 +45,5 @@ mod_precip_transport.o : mod_precision.o mod_debug.o mod_thrmdyn.o mod_vadv1d.o
 mod_mp_driver.o        : mod_precision.o mod_debug.o mod_satadjust.o mod_mp_nsw6.o
 mod_mp_nsw6.o          : mod_precision.o mod_debug.o mod_satadjust.o mod_thrmdyn.o mod_precip_transport.o
 
-main.o : ${USER_LIB} mod_precision.o dumpio.o mod_debug.o mod_mp_driver.o
-
-example.o: helper_functions.o time_profiling.o ${USER_LIB}
+main.o : ${USER_LIB} mod_precision.o dumpio.o mod_debug.o mod_mp_driver.o time_profiling.o helper_functions.o
 

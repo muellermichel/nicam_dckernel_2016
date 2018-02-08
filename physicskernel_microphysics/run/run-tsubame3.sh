@@ -7,6 +7,14 @@ physical_cores() {
 	echo ${PHY_CORES}
 }
 
+arch_input=$1
+if [ -z $arch_input ] ; then
+	arch_input=${arch}
+fi
+if [ -z $arch_input ] ; then
+	arch_input="cpu"
+fi
+
 if [ -e /etc/profile.d/modules.sh ] ; then
     . /etc/profile.d/modules.sh
 fi
@@ -53,16 +61,4 @@ export KMP_AFFINITY=compact
 
 echo "local rank: ${local_rank}, local size: ${local_size}, num. threads: ${OMP_NUM_THREADS}"
 
-HMDIR=${WORK}/nicam_dckernel_2016
-
-OUTDIR=${HMDIR}/physicskernel_microphysics/run
-mkdir -p ${OUTDIR}
-cd       ${OUTDIR}
-
-ln -svf ${HMDIR}/bin/physicskernel_microphysics.exe .
-ln -svf ${HMDIR}/physicskernel_microphysics/data/vgrid94.dat .
-
-ln -svf ${HMDIR}/physicskernel_microphysics/data/snapshot.microphysics.pe000003 .
-ln -svf ${HMDIR}/physicskernel_microphysics/data/check.microphysics.pe000003 .
-
-time ./physicskernel_microphysics.exe
+./run.sh ${arch_input}

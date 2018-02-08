@@ -15,6 +15,8 @@ program physicskernel_microphysics
   use mod_mp_driver, only: &
      mp_init,  &
      mp_driver
+  use time_profiling
+  use helper_functions
   !-----------------------------------------------------------------------------
   implicit none
 
@@ -104,6 +106,7 @@ program physicskernel_microphysics
   real(RP), allocatable :: CHECK_GPREC            (:,:,:)
 
   integer :: l, nq, iteration
+  real(8) :: t_start_main
   !=============================================================================
 
   write(*,*) "[KERNEL] physicskernel_microphysics"
@@ -273,6 +276,7 @@ program physicskernel_microphysics
   write(*,*) "*** Start  kernel"
   call PROF_rapstart('Cloud_Microphysics_kernel')
 
+
   do iteration = 1, SET_iteration
      write(*,*) '### Before ###'
      call PROF_valcheck( 'before', 'rhog  ', rhog  (:,:,:) )
@@ -285,6 +289,7 @@ program physicskernel_microphysics
         call PROF_valcheck( 'before', TRC_name(nq), rhogq_Lswp(:,:,nq,:) )
      enddo
 
+       call getTime(t_start_main)
        call mp_driver( ADM_gall_in,                       & ! [IN]
                        l,                                 & ! [IN]
                        rhog            (:,:,l),           & ! [INOUT]
@@ -339,6 +344,7 @@ program physicskernel_microphysics
                        GDCFRC          (:,:,l),           & ! [OUT]
                        GPREC           (:,:,l),           & ! [INOUT]
                        CBMFX           (:,:,l)            ) ! [IN]
+          call incrementCounter(counter1, t_start_main)
 
      write(*,*) '### After ###'
      call PROF_valcheck( 'after', 'rhog  ', rhog  (:,:,:) )
@@ -351,6 +357,7 @@ program physicskernel_microphysics
         call PROF_valcheck( 'after', TRC_name(nq), rhogq_Lswp(:,:,nq,:) )
      enddo
   enddo
+  write(0, "(A,F13.5)") "Time measured with HF tooling for mp_driver:", counter1
 
   call PROF_rapend('Cloud_Microphysics_kernel')
   write(*,*) "*** Finish kernel"
