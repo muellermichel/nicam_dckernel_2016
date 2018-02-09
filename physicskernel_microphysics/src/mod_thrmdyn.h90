@@ -44,6 +44,9 @@ module mod_thrmdyn
   public :: THRMDYN_rhoein
   public :: THRMDYN_tempre
 
+  public :: THRMDYN_cv_ijk
+  public :: THRMDYN_qd_ijk
+
   interface THRMDYN_qd
      module procedure THRMDYN_qd_ijk
      module procedure THRMDYN_qd_ijkl
@@ -130,6 +133,10 @@ contains
     real(RP), intent(out) :: qd(ijdim,kdim)       ! dry air mass concentration [kg/kg]
 
     integer :: ij, k, nq
+
+    @domainDependant{attribute(autoDom, present)}
+    q, qd
+    @end domainDependant
     !---------------------------------------------------------------------------
 
     ! !$omp parallel default(none),private(ij,k,nq), &
@@ -272,6 +279,10 @@ contains
     real(RP) :: CVdry
 
     integer  :: ij, k, nq
+
+    @domainDependant{attribute(autoDom, present)}
+    qd, q, cv
+    @end domainDependant
     !---------------------------------------------------------------------------
 
     CVdry = CONST_CVdry

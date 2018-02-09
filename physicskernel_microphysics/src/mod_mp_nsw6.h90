@@ -111,6 +111,23 @@ module mod_mp_nsw6
   real(RP), private            :: coef_b(10) = (/ 0.476221_RP, -0.015896_RP,  0.165977_RP, 0.007468_RP, -0.000141_RP, &
                                                   0.060366_RP,  0.000079_RP,  0.000594_RP, 0.0_RP,      -0.003577_RP  /)
 
+  ! Bergeron parameter
+  real(RP), private            :: a1_tab(32) = (/ 0.0001E-7_RP, 0.7939E-7_RP, 0.7841E-6_RP, 0.3369E-5_RP, 0.4336E-5_RP, &
+                  0.5285E-5_RP, 0.3728E-5_RP, 0.1852E-5_RP, 0.2991E-6_RP, 0.4248E-6_RP, &
+                  0.7434E-6_RP, 0.1812E-5_RP, 0.4394E-5_RP, 0.9145E-5_RP, 0.1725E-4_RP, &
+                  0.3348E-4_RP, 0.1725E-4_RP, 0.9175E-5_RP, 0.4412E-5_RP, 0.2252E-5_RP, &
+                  0.9115E-6_RP, 0.4876E-6_RP, 0.3473E-6_RP, 0.4758E-6_RP, 0.6306E-6_RP, &
+                  0.8573E-6_RP, 0.7868E-6_RP, 0.7192E-6_RP, 0.6513E-6_RP, 0.5956E-6_RP, &
+                  0.5333E-6_RP, 0.4834E-6_RP  /)
+
+  real(RP), private            :: a2_tab(32) = (/ 0.0100_RP, 0.4006_RP, 0.4831_RP, 0.5320_RP, 0.5307_RP, &
+                  0.5319_RP, 0.5249_RP, 0.4888_RP, 0.3849_RP, 0.4047_RP, &
+                  0.4318_RP, 0.4771_RP, 0.5183_RP, 0.5463_RP, 0.5651_RP, &
+                  0.5813_RP, 0.5655_RP, 0.5478_RP, 0.5203_RP, 0.4906_RP, &
+                  0.4447_RP, 0.4126_RP, 0.3960_RP, 0.4149_RP, 0.4320_RP, &
+                  0.4506_RP, 0.4483_RP, 0.4460_RP, 0.4433_RP, 0.4413_RP, &
+                  0.4382_RP, 0.4361_RP  /)
+
   ! Accretion parameter
   real(RP), private            :: Eiw        = 1.0_RP      !< collection efficiency of cloud ice for cloud water
   real(RP), private            :: Erw        = 1.0_RP      !< collection efficiency of rain    for cloud water
@@ -580,16 +597,17 @@ qr_aut_acc_type="KK2000"
 !ESC!       I_QS,              &
 !ESC!       I_QG
     use mod_thrmdyn, only: &
-       thrmdyn_cv, &
-       thrmdyn_qd
+       THRMDYN_cv_ijk, &
+       THRMDYN_qd_ijk
     use mod_satadjust, only: &
-       SATURATION_psat_liq,  &
-       SATURATION_psat_ice,  &
-       SATURATION_setrange,  &
-       SATURATION_adjustment
+       SATURATION_psat_liq_2D,  &
+       SATURATION_psat_ice_2D,  &
+       SATURATION_setrange
+       ! SATURATION_adjustment
     use mod_precip_transport, only: &
        precip_transport_new
-    use mod_debug, only: kdim, nqmax
+    use mod_debug, only: kdim, kmin, kmax, nqmax, NQW_STR, NQW_END, &
+       I_QV, I_QC, I_QR, I_QI, I_QS, I_QG, LHV, LHF
 !ESC!       precip_transport_nwater, &
 !ESC!       precip_transport_new,    &
 !ESC!       precip_transport_euler
@@ -808,8 +826,8 @@ qr_aut_acc_type="KK2000"
     endif
 
     ! saturation water contensts
-    call SATURATION_psat_liq( ijdim, kdim, tem(:,:), psatl(:,:) )
-    call SATURATION_psat_ice( ijdim, kdim, tem(:,:), psati(:,:) )
+    call SATURATION_psat_liq_2D( ijdim, kdim, tem(:,:), psatl(:,:) )
+    call SATURATION_psat_ice_2D( ijdim, kdim, tem(:,:), psati(:,:) )
 
     ! !$omp parallel do default(none),private(ij,k), &
     ! !$omp shared(ijdim,kdim,qsatl,qsati,psatl,psati,rho,tem,Rvap), &
@@ -1082,7 +1100,7 @@ endif
           wk(I_Pgaci) = qi * 0.25_RP * PI * Egi * N0g * Cg * GAM_3dg * RLMDg_3dg * rho_fact
 
           ! [Piacr] accretion rate of rain by cloud ice
-          wk(I_Piacr) = qi * Ar / Mi * 0.25_RP * PI * Eri * N0r * Cr * GAM_6dr * RLMDr_6dr * rho_fact
+          wk(I_Piacr) = qi * Ar / mi * 0.25_RP * PI * Eri * N0r * Cr * GAM_6dr * RLMDr_6dr * rho_fact
 
           ! [Psacr] accretion rate of rain by snow
           wk(I_Psacr) = Ar * 0.25_RP * PI * Rdens * Esr * N0r       * abs(Vtr-Vts) &
@@ -1675,12 +1693,12 @@ endif
     ! enddo
     ! !$omp end parallel do
 
-    call thrmdyn_qd( ijdim,     & ! [IN]
+    call THRMDYN_qd_ijk( ijdim,     & ! [IN]
                      kdim,      & ! [IN]
                      q (:,:,:), & ! [IN]
                      qd(:,:)    ) ! [OUT]
 
-    call thrmdyn_cv( ijdim,      & ! [IN]
+    call THRMDYN_cv_ijk( ijdim,      & ! [IN]
                      kdim,       & ! [IN]
                      qd (:,:),   & ! [IN]
                      q  (:,:,:), & ! [IN]
@@ -1959,8 +1977,8 @@ endif
 !ESC!       NQW_END,           &
 !ESC!       I_QV
     use mod_thrmdyn, only: &
-       thrmdyn_cv, &
-       thrmdyn_qd
+       THRMDYN_cv_ijk, &
+       THRMDYN_qd_ijk
     use mod_debug, only: kdim, kmin, kmax, nqmax, NQW_STR, NQW_END, I_QV
     implicit none
 
@@ -1980,6 +1998,10 @@ endif
     real(RP) :: Rdry, Rvap
 
     integer  :: ij, k, nq
+
+    @domainDependant{attribute(autoDom, present)}
+    rhog, rhoge, rhogq, rho, tem, pre, q, gsgam2
+    @end domainDependant
     !---------------------------------------------------------------------------
 
     Rdry = CONST_Rdry
@@ -2051,12 +2073,12 @@ endif
 
     ! !$omp end parallel
 
-    call thrmdyn_qd( ijdim,     & ! [IN]
+    call THRMDYN_qd_ijk( ijdim,     & ! [IN]
                      kdim,      & ! [IN]
                      q (:,:,:), & ! [IN]
                      qd(:,:)    ) ! [OUT]
 
-    call thrmdyn_cv( ijdim,      & ! [IN]
+    call THRMDYN_cv_ijk( ijdim,      & ! [IN]
                      kdim,       & ! [IN]
                      qd (:,:),   & ! [IN]
                      q  (:,:,:), & ! [IN]
@@ -2092,6 +2114,7 @@ endif
 !ESC!       kmax => ADM_kmax
 !ESC!    use mod_const, only: &
 !ESC!       TEM00 => CONST_TEM00
+    use mod_debug, only: kdim
     implicit none
 
     integer,  intent(in)  :: ijdim
@@ -2100,36 +2123,22 @@ endif
     real(RP), intent(out) :: a2 (ijdim,kdim)
     real(RP), intent(out) :: ma2(ijdim,kdim)
 
-    real(RP) :: a1_tab(32)
-    real(RP) :: a2_tab(32)
-
-    data a1_tab / 0.0001E-7_RP, 0.7939E-7_RP, 0.7841E-6_RP, 0.3369E-5_RP, 0.4336E-5_RP, &
-                  0.5285E-5_RP, 0.3728E-5_RP, 0.1852E-5_RP, 0.2991E-6_RP, 0.4248E-6_RP, &
-                  0.7434E-6_RP, 0.1812E-5_RP, 0.4394E-5_RP, 0.9145E-5_RP, 0.1725E-4_RP, &
-                  0.3348E-4_RP, 0.1725E-4_RP, 0.9175E-5_RP, 0.4412E-5_RP, 0.2252E-5_RP, &
-                  0.9115E-6_RP, 0.4876E-6_RP, 0.3473E-6_RP, 0.4758E-6_RP, 0.6306E-6_RP, &
-                  0.8573E-6_RP, 0.7868E-6_RP, 0.7192E-6_RP, 0.6513E-6_RP, 0.5956E-6_RP, &
-                  0.5333E-6_RP, 0.4834E-6_RP  /
-
-    data a2_tab / 0.0100_RP, 0.4006_RP, 0.4831_RP, 0.5320_RP, 0.5307_RP, &
-                  0.5319_RP, 0.5249_RP, 0.4888_RP, 0.3849_RP, 0.4047_RP, &
-                  0.4318_RP, 0.4771_RP, 0.5183_RP, 0.5463_RP, 0.5651_RP, &
-                  0.5813_RP, 0.5655_RP, 0.5478_RP, 0.5203_RP, 0.4906_RP, &
-                  0.4447_RP, 0.4126_RP, 0.3960_RP, 0.4149_RP, 0.4320_RP, &
-                  0.4506_RP, 0.4483_RP, 0.4460_RP, 0.4433_RP, 0.4413_RP, &
-                  0.4382_RP, 0.4361_RP  /
-
     real(RP) :: temc
     integer  :: itemc
     real(RP) :: fact
 
     integer  :: ij, k
+
+    @domainDependant{attribute(autoDom, present)}
+    tem, a1, a2, ma2
+    @end domainDependant
     !---------------------------------------------------------------------------
 
     ! !$omp parallel do default(none),private(ij,k,temc,itemc,fact), &
     ! !$omp shared(ijdim,kmin,kmax,a1,a2,ma2,tem,a1_tab,a2_tab)
     ! do k  = kmin, kmax
     ! do ij = 1, ijdim
+
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        temc  = min( max( tem(ij,k)-TEM00, -30.99_RP ), 0.0_RP ) ! 0C <= T  <  31C
        itemc = int( -temc ) + 1                                 ! 1  <= iT <= 31
@@ -2145,6 +2154,7 @@ endif
 
        a1 (ij,k) = a1(ij,k) * 1.E-3_RP**ma2(ij,k) ! [g->kg]
     @end parallelRegion
+
     ! enddo
     ! enddo
     ! !$omp end parallel do
