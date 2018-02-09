@@ -121,6 +121,7 @@ contains
 !ESC!       nqmax => TRC_VMAX, &
 !ESC!       NQW_STR,           &
 !ESC!       NQW_END
+    use mod_debug, only: nqmax, NQW_STR, NQW_END
     implicit none
 
     integer,  intent(in)  :: ijdim
@@ -131,28 +132,30 @@ contains
     integer :: ij, k, nq
     !---------------------------------------------------------------------------
 
-    !$omp parallel default(none),private(ij,k,nq), &
-    !$omp shared(ijdim,kdim,NQW_STR,NQW_END,qd,q)
+    ! !$omp parallel default(none),private(ij,k,nq), &
+    ! !$omp shared(ijdim,kdim,NQW_STR,NQW_END,qd,q)
 
-    !$omp do
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! !$omp do
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        qd(ij,k) = 1.0_RP
-    enddo
-    enddo
-    !$omp end do
+    ! enddo
+    ! enddo
+    ! !$omp end do
 
     do nq = NQW_STR, NQW_END
-       !$omp do
-       do k  = 1, kdim
-       do ij = 1, ijdim
+       ! !$omp do
+       ! do k  = 1, kdim
+       ! do ij = 1, ijdim
           qd(ij,k) = qd(ij,k) - q(ij,k,nq)
-       enddo
-       enddo
-       !$omp end do
+       ! enddo
+       ! enddo
+       ! !$omp end do
     enddo
+    @end parallelRegion
 
-    !$omp end parallel
+    ! ! $omp end parallel
 
 !ACC!    !$acc kernels pcopy(qd) pcopyin(q) async(0)
 !ACC!    do k  = 1, kdim
@@ -257,6 +260,7 @@ contains
 !ESC!       NQW_STR,           &
 !ESC!       NQW_END,           &
 !ESC!       CVW
+    use mod_debug, only: nqmax, NQW_STR, NQW_END, CVW
     implicit none
 
     integer,  intent(in)  :: ijdim
@@ -272,28 +276,31 @@ contains
 
     CVdry = CONST_CVdry
 
-    !$omp parallel default(none),private(ij,k,nq), &
-    !$omp shared(ijdim,kdim,NQW_STR,NQW_END,cv,qd,q,CVW,CVdry)
+!    !$omp parallel default(none),private(ij,k,nq), &
+!    !$omp shared(ijdim,kdim,NQW_STR,NQW_END,cv,qd,q,CVW,CVdry)
 
-    !$omp do
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! !$omp do
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        cv(ij,k) = qd(ij,k) * CVdry
-    enddo
-    enddo
-    !$omp end do
+    ! enddo
+    ! enddo
+    ! !$omp end do
 
     do nq = NQW_STR, NQW_END
-       !$omp do
-       do k  = 1, kdim
-       do ij = 1, ijdim
+       ! !$omp do
+       ! do k  = 1, kdim
+       ! do ij = 1, ijdim
           cv(ij,k) = cv(ij,k) + q(ij,k,nq) * CVW(nq)
-       enddo
-       enddo
-       !$omp end do
+       ! enddo
+       ! enddo
+       ! !$omp end do
     enddo
+    @end parallelRegion
 
-    !$omp end parallel
+    ! ! $omp end parallel
 
 !ACC!    !$acc kernels pcopy(cv) pcopyin(qd,q,CVW) async(0)
 !ACC!    do k  = 1, kdim

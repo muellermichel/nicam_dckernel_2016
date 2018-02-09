@@ -589,6 +589,7 @@ qr_aut_acc_type="KK2000"
        SATURATION_adjustment
     use mod_precip_transport, only: &
        precip_transport_new
+    use mod_debug, only: kdim, nqmax
 !ESC!       precip_transport_nwater, &
 !ESC!       precip_transport_new,    &
 !ESC!       precip_transport_euler
@@ -781,41 +782,47 @@ qr_aut_acc_type="KK2000"
                           gsgam2(:,:)    ) ! [IN]
 
     if ( OPT_INDIR ) then  !  aerosol indirect effect
-       !$omp parallel do default(none),private(ij,k), &
-       !$omp shared(ijdim,kdim,Nc,UNCCN,Nc_def), &
-       !$omp collapse(2)
-       do k  = 1, kdim
-       do ij = 1, ijdim
+       ! !$omp parallel do default(none),private(ij,k), &
+       ! !$omp shared(ijdim,kdim,Nc,UNCCN,Nc_def), &
+       ! !$omp collapse(2)
+       ! do k  = 1, kdim
+       ! do ij = 1, ijdim
+       @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
           Nc(ij,k) = max( UNCCN(ij,k)*1.E-6_RP, Nc_def ) ! [#/m3]->[#/cc]
-       enddo
-       enddo
-       !$omp end parallel do
+       @end parallelRegion
+       ! enddo
+       ! enddo
+       ! !$omp end parallel do
     else
-       !$omp parallel do default(none),private(ij,k), &
-       !$omp shared(ijdim,kdim,Nc,Nc_def), &
-       !$omp collapse(2)
-       do k  = 1, kdim
-       do ij = 1, ijdim
+       ! !$omp parallel do default(none),private(ij,k), &
+       ! !$omp shared(ijdim,kdim,Nc,Nc_def), &
+       ! !$omp collapse(2)
+       ! do k  = 1, kdim
+       ! do ij = 1, ijdim
+       @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
           Nc(ij,k) = Nc_def
-       enddo
-       enddo
-       !$omp end parallel do
+       @end parallelRegion
+       ! enddo
+       ! enddo
+       ! !$omp end parallel do
     endif
 
     ! saturation water contensts
     call SATURATION_psat_liq( ijdim, kdim, tem(:,:), psatl(:,:) )
     call SATURATION_psat_ice( ijdim, kdim, tem(:,:), psati(:,:) )
 
-    !$omp parallel do default(none),private(ij,k), &
-    !$omp shared(ijdim,kdim,qsatl,qsati,psatl,psati,rho,tem,Rvap), &
-    !$omp collapse(2)
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k), &
+    ! !$omp shared(ijdim,kdim,qsatl,qsati,psatl,psati,rho,tem,Rvap), &
+    ! !$omp collapse(2)
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        qsatl(ij,k) = psatl(ij,k) / ( rho(ij,k) * Rvap * tem(ij,k) )
        qsati(ij,k) = psati(ij,k) / ( rho(ij,k) * Rvap * tem(ij,k) )
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
     ! Bergeron process parameters
     call Bergeron_param( ijdim,    & ! [IN]
@@ -1569,40 +1576,48 @@ if ( TIME_CSTEP == EX_STEP ) then
    call PROF_rapend  ('_kernel_partM12')
 endif
 
-    !--- update rhogq
-    !$omp parallel do default(none),private(ij,k), &
-    !$omp shared(ijdim,kmin,kmax,rhogq,drhogqv,drhogqc,drhogqr,drhogqi,drhogqs,drhogqg, &
-    !$omp        I_QV,I_QC,I_QR,I_QI,I_QS,I_QG ) &
-    !$omp collapse(2)
-    do k  = kmin, kmax
-    do ij = 1, ijdim
+    ! !--- update rhogq
+    ! !$omp parallel do default(none),private(ij,k), &
+    ! !$omp shared(ijdim,kmin,kmax,rhogq,drhogqv,drhogqc,drhogqr,drhogqi,drhogqs,drhogqg, &
+    ! !$omp        I_QV,I_QC,I_QR,I_QI,I_QS,I_QG ) &
+    ! !$omp collapse(2)
+    ! do k  = kmin, kmax
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        rhogq(ij,k,I_QV) = rhogq(ij,k,I_QV) + drhogqv(ij,k)
        rhogq(ij,k,I_QC) = rhogq(ij,k,I_QC) + drhogqc(ij,k)
        rhogq(ij,k,I_QR) = rhogq(ij,k,I_QR) + drhogqr(ij,k)
        rhogq(ij,k,I_QI) = rhogq(ij,k,I_QI) + drhogqi(ij,k)
        rhogq(ij,k,I_QS) = rhogq(ij,k,I_QS) + drhogqs(ij,k)
        rhogq(ij,k,I_QG) = rhogq(ij,k,I_QG) + drhogqg(ij,k)
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
     !--- update rhoge
-    !$omp parallel do default(none),private(ij,k), &
-    !$omp shared(ijdim,kmin,kmax,rhoge,drhogqv,drhogqi,drhogqs,drhogqg,LHV,LHF) &
-    !$omp collapse(2)
-    do k  = kmin, kmax
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k), &
+    ! !$omp shared(ijdim,kmin,kmax,rhoge,drhogqv,drhogqi,drhogqs,drhogqg,LHV,LHF) &
+    ! !$omp collapse(2)
+    ! do k  = kmin, kmax
+    ! do ij = 1, ijdim
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        rhoge(ij,k) = rhoge(ij,k) - LHV * drhogqv(ij,k) &
                                  + LHF * drhogqi(ij,k) &
                                  + LHF * drhogqs(ij,k) &
                                  + LHF * drhogqg(ij,k)
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
-    !$omp parallel do default(none),private(ij,sw), &
-    !$omp shared(ijdim,kmin,kmax,rceff,tctop,rctop,rwtop,rceff_cld,tctop_cld,rctop_cld,rwtop_cld,UNDEF)
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,sw), &
+    ! !$omp shared(ijdim,kmin,kmax,rceff,tctop,rctop,rwtop,rceff_cld,tctop_cld,rctop_cld,rwtop_cld,UNDEF)
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij), domSize(ijdim)}
        rceff    (ij,kmin-1) = 0.0_RP
        rceff_cld(ij,kmin-1) = 0.0_RP
        rceff    (ij,kmax+1) = 0.0_RP
@@ -1617,8 +1632,10 @@ endif
 
        rwtop_cld(ij,1) = (        sw ) * rctop_cld(ij,1) &
                        + ( 1.0_RP-sw ) * UNDEF
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+
+    ! enddo
+    ! !$omp end parallel do
 
 if ( TIME_CSTEP == EX_STEP ) then
    call PROF_rapstart('_kernel_partM3')
@@ -1626,29 +1643,37 @@ endif
 
     !---< preciptation >---
 
-    !$omp parallel do default(none),private(ij,nq), &
-    !$omp shared(nqmax,ijdim,kmin,kmax,Vt) &
-    !$omp collapse(2)
-    do nq = 1, nqmax
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,nq), &
+    ! !$omp shared(nqmax,ijdim,kmin,kmax,Vt) &
+    ! !$omp collapse(2)
+    ! do nq = 1, nqmax
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,nq), domSize(ijdim,nqmax)}
        Vt(ij,kmin-1,nq) = 0.0_RP
        Vt(ij,kmax+1,nq) = 0.0_RP
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
     !--- update mass concentration
-    !$omp parallel do default(none),private(ij,k,nq), &
-    !$omp shared(ijdim,kmin,kmax,NQW_STR,NQW_END,q,rhogq,rhog) &
-    !$omp collapse(3)
-    do nq = NQW_STR, NQW_END
-    do k  = kmin, kmax
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k,nq), &
+    ! !$omp shared(ijdim,kmin,kmax,NQW_STR,NQW_END,q,rhogq,rhog) &
+    ! !$omp collapse(3)
+    ! do nq = NQW_STR, NQW_END
+    ! do k  = kmin, kmax
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k,nq), domSize(ijdim,kdim,nqmax), startAt(1,kmin,NQW_STR), endAt(ijdim,kmax,NQW_END)}
        q(ij,k,nq) = rhogq(ij,k,nq) / rhog(ij,k)
-    enddo
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
     call thrmdyn_qd( ijdim,     & ! [IN]
                      kdim,      & ! [IN]
@@ -1661,17 +1686,21 @@ endif
                      q  (:,:,:), & ! [IN]
                      cva(:,:)    ) ! [OUT]
 
-    !$omp parallel do default(none),private(ij,k), &
-    !$omp shared(ijdim,kdim,tem,rhoge,rhog,cva,rgs,rgsh,gam2,gam2h,gsgam2,gsgam2h), &
-    !$omp collapse(2)
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k), &
+    ! !$omp shared(ijdim,kdim,tem,rhoge,rhog,cva,rgs,rgsh,gam2,gam2h,gsgam2,gsgam2h), &
+    ! !$omp collapse(2)
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        tem (ij,k) = rhoge(ij,k) / ( rhog(ij,k) * cva(ij,k) )
        rgs (ij,k) = gam2 (ij,k) / gsgam2 (ij,k)
        rgsh(ij,k) = gam2h(ij,k) / gsgam2h(ij,k)
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
     preciptation_flag(:)    = .false.
     preciptation_flag(I_QR) = .true.
@@ -1725,43 +1754,44 @@ endif
 !ESC!
 !ESC!    elseif( precip_scheme_type == 'Flux-Semilag_new' ) then
 
-       call precip_transport_new( ijdim,             &
-                                  rhog,              &
-                                  rhogvx,            &
-                                  rhogvy,            &
-                                  rhogvz,            &
-                                  rhogw,             &
-                                  rhoge,             &
-                                  rhogq,             &
-                                  rho,               &
-                                  tem,               &
-                                  pre,               &
-                                  vx,                &
-                                  vy,                &
-                                  vz,                &
-                                  w,                 &
-                                  q,                 &
-                                  qd,                &
-                                  z,                 &
-                                  Vt,                &
-                                  preciptation_flag, &
-                                  precip,            &
-                                  precip_rhoe,       &
-                                  precip_lh_heat,    &
-                                  precip_rhophi,     &
-                                  precip_rhokin,     &
-                                  gprec,             &
-                                  gsgam2,            &
-                                  gsgam2h,           &
-                                  rgs,               &
-                                  rgsh,              &
-                                  ix,                &
-                                  iy,                &
-                                  iz,                &
-                                  jx,                &
-                                  jy,                &
-                                  jz,                &
-                                  dt                 )
+!TODO-HF: ENABLE
+       ! call precip_transport_new( ijdim,             &
+       !                            rhog,              &
+       !                            rhogvx,            &
+       !                            rhogvy,            &
+       !                            rhogvz,            &
+       !                            rhogw,             &
+       !                            rhoge,             &
+       !                            rhogq,             &
+       !                            rho,               &
+       !                            tem,               &
+       !                            pre,               &
+       !                            vx,                &
+       !                            vy,                &
+       !                            vz,                &
+       !                            w,                 &
+       !                            q,                 &
+       !                            qd,                &
+       !                            z,                 &
+       !                            Vt,                &
+       !                            preciptation_flag, &
+       !                            precip,            &
+       !                            precip_rhoe,       &
+       !                            precip_lh_heat,    &
+       !                            precip_rhophi,     &
+       !                            precip_rhokin,     &
+       !                            gprec,             &
+       !                            gsgam2,            &
+       !                            gsgam2h,           &
+       !                            rgs,               &
+       !                            rgsh,              &
+       !                            ix,                &
+       !                            iy,                &
+       !                            iz,                &
+       !                            jx,                &
+       !                            jy,                &
+       !                            jz,                &
+       !                            dt                 )
 
 !ESC!    else
 !ESC!
@@ -1809,17 +1839,21 @@ if ( TIME_CSTEP == EX_STEP ) then
    call PROF_rapend  ('_kernel_partM3')
 endif
 
-    !$omp parallel do default(none),private(ij,k), &
-    !$omp shared(ijdim,kdim,ml_Pconv,ml_Pconw,ml_Pconi,q,I_QV,I_QC,I_QI) &
-    !$omp collapse(2)
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k), &
+    ! !$omp shared(ijdim,kdim,ml_Pconv,ml_Pconw,ml_Pconi,q,I_QV,I_QC,I_QI) &
+    ! !$omp collapse(2)
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        ml_Pconv(ij,k) = q(ij,k,I_QV)
        ml_Pconw(ij,k) = q(ij,k,I_QC)
        ml_Pconi(ij,k) = q(ij,k,I_QI)
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
 if ( TIME_CSTEP == EX_STEP ) then
    call PROF_rapstart('_kernel_partM4')
@@ -1827,47 +1861,52 @@ endif
 
     if ( OPT_EXPLICIT_ICEGEN ) then
 
-       call SATURATION_setrange( 100.0_RP, 90.0_RP )
+      !TODO-HF: ENABLE
+       ! call SATURATION_setrange( 100.0_RP, 90.0_RP )
 
-       call SATURATION_adjustment( ijdim,             & ! [IN]
-                                   kdim,              & ! [IN]
-                                   rhog  (:,:),       & ! [IN]
-                                   rhoge (:,:),       & ! [INOUT]
-                                   rhogq (:,:,:),     & ! [INOUT]
-                                   tem   (:,:),       & ! [INOUT]
-                                   q     (:,:,:),     & ! [INOUT]
-                                   qd    (:,:),       & ! [IN]
-                                   gsgam2(:,:),       & ! [IN]
-                                   ice_adjust=.false. ) ! [IN]
+       ! call SATURATION_adjustment( ijdim,             & ! [IN]
+       !                             kdim,              & ! [IN]
+       !                             rhog  (:,:),       & ! [IN]
+       !                             rhoge (:,:),       & ! [INOUT]
+       !                             rhogq (:,:,:),     & ! [INOUT]
+       !                             tem   (:,:),       & ! [INOUT]
+       !                             q     (:,:,:),     & ! [INOUT]
+       !                             qd    (:,:),       & ! [IN]
+       !                             gsgam2(:,:),       & ! [IN]
+       !                             ice_adjust=.false. ) ! [IN]
 
     else
+        !TODO-HF: ENABLE
+       ! call SATURATION_setrange( 273.16_RP, 233.16_RP )
 
-       call SATURATION_setrange( 273.16_RP, 233.16_RP )
-
-       call SATURATION_adjustment( ijdim,             & ! [IN]
-                                   kdim,              & ! [IN]
-                                   rhog  (:,:),       & ! [IN]
-                                   rhoge (:,:),       & ! [INOUT]
-                                   rhogq (:,:,:),     & ! [INOUT]
-                                   tem   (:,:),       & ! [INOUT]
-                                   q     (:,:,:),     & ! [INOUT]
-                                   qd    (:,:),       & ! [IN]
-                                   gsgam2(:,:),       & ! [IN]
-                                   ice_adjust=.true.  ) ! [IN]
+       ! call SATURATION_adjustment( ijdim,             & ! [IN]
+       !                             kdim,              & ! [IN]
+       !                             rhog  (:,:),       & ! [IN]
+       !                             rhoge (:,:),       & ! [INOUT]
+       !                             rhogq (:,:,:),     & ! [INOUT]
+       !                             tem   (:,:),       & ! [INOUT]
+       !                             q     (:,:,:),     & ! [INOUT]
+       !                             qd    (:,:),       & ! [IN]
+       !                             gsgam2(:,:),       & ! [IN]
+       !                             ice_adjust=.true.  ) ! [IN]
 
     endif
 
-    !$omp parallel do default(none),private(ij,k), &
-    !$omp shared(ijdim,kdim,ml_Pconv,ml_Pconw,ml_Pconi,q,I_QV,I_QC,I_QI) &
-    !$omp collapse(2)
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k), &
+    ! !$omp shared(ijdim,kdim,ml_Pconv,ml_Pconw,ml_Pconi,q,I_QV,I_QC,I_QI) &
+    ! !$omp collapse(2)
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        ml_Pconv(ij,k) = q(ij,k,I_QV) - ml_Pconv(ij,k)
        ml_Pconw(ij,k) = q(ij,k,I_QC) - ml_Pconw(ij,k)
        ml_Pconi(ij,k) = q(ij,k,I_QI) - ml_Pconi(ij,k)
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
 if ( TIME_CSTEP == EX_STEP ) then
    call PROF_rapend  ('_kernel_partM4')
@@ -1922,6 +1961,7 @@ endif
     use mod_thrmdyn, only: &
        thrmdyn_cv, &
        thrmdyn_qd
+    use mod_debug, only: kdim, kmin, kmax, nqmax, NQW_STR, NQW_END, I_QV
     implicit none
 
     integer,  intent(in)    :: ijdim
@@ -1945,12 +1985,14 @@ endif
     Rdry = CONST_Rdry
     Rvap = CONST_Rvap
 
-    !$omp parallel default(none),private(ij,k,nq,diffq), &
-    !$omp shared(ijdim,kmin,kmax,NQW_STR,NQW_END,rhogq,rhog,q,rho,gsgam2,I_QV)
+    ! !$omp parallel default(none),private(ij,k,nq,diffq), &
+    ! !$omp shared(ijdim,kmin,kmax,NQW_STR,NQW_END,rhogq,rhog,q,rho,gsgam2,I_QV)
 
-    !$omp do
-    do k  = kmin, kmax
-    do ij = 1, ijdim
+    ! !$omp do
+    ! do k  = kmin, kmax
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
        diffq = 0.0_RP
        do nq = NQW_STR+1, NQW_END
           ! total hydrometeor (before correction)
@@ -1966,13 +2008,17 @@ endif
 
        ! Compensate for the lack of hydrometeors by the water vapor
        rhogq(ij,k,I_QV) = rhogq(ij,k,I_QV) + diffq
-    enddo
-    enddo
-    !$omp end do
+    @end parallelRegion
 
-    !$omp do
-    do k  = kmin, kmax
-    do ij = 1, ijdim
+    ! enddo
+    ! enddo
+    ! !$omp end do
+
+    ! !$omp do
+    ! do k  = kmin, kmax
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
        diffq = rhogq(ij,k,I_QV)
        ! remove negative value of water vapor (mass)
        rhogq(ij,k,I_QV) = max( rhogq(ij,k,I_QV), 0.0_RP )
@@ -1982,22 +2028,28 @@ endif
        ! Apply correction to total density
        rhog(ij,k) = rhog(ij,k) * ( 1.0_RP - diffq ) ! diffq is negative
        rho (ij,k) = rhog(ij,k) / gsgam2(ij,k)
-    enddo
-    enddo
-    !$omp end do
+    @end parallelRegion
 
-    !$omp do
-    do nq = NQW_STR, NQW_END
-    do k  = kmin, kmax
-    do ij = 1, ijdim
+    ! enddo
+    ! enddo
+    ! !$omp end do
+
+    ! !$omp do
+    ! do nq = NQW_STR, NQW_END
+    ! do k  = kmin, kmax
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k,nq), domSize(ijdim,kdim,nqmax), startAt(1,kmin,NQW_STR), endAt(ijdim,kmax,NQW_END)}
        !--- update mass concentration
        q(ij,k,nq) = rhogq(ij,k,nq) / rhog(ij,k)
-    enddo
-    enddo
-    enddo
-    !$omp end do
+    @end parallelRegion
 
-    !$omp end parallel
+    ! enddo
+    ! enddo
+    ! enddo
+    ! !$omp end do
+
+    ! !$omp end parallel
 
     call thrmdyn_qd( ijdim,     & ! [IN]
                      kdim,      & ! [IN]
@@ -2010,15 +2062,19 @@ endif
                      q  (:,:,:), & ! [IN]
                      cva(:,:)    ) ! [OUT]
 
-    !$omp parallel do default(none),private(ij,k), &
-    !$omp shared(ijdim,kmin,kmax,rhoge,pre,rho,tem,rhog,qd,q,cva,I_QV,Rdry,Rvap)
-    do k  = kmin, kmax
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k), &
+    ! !$omp shared(ijdim,kmin,kmax,rhoge,pre,rho,tem,rhog,qd,q,cva,I_QV,Rdry,Rvap)
+    ! do k  = kmin, kmax
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
        rhoge(ij,k) = tem(ij,k) * rhog(ij,k) * cva(ij,k)
        pre  (ij,k) = rho(ij,k) * ( qd(ij,k) * Rdry + q(ij,k,I_QV) * Rvap ) * tem(ij,k)
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
     return
   end subroutine negative_filter
@@ -2070,10 +2126,11 @@ endif
     integer  :: ij, k
     !---------------------------------------------------------------------------
 
-    !$omp parallel do default(none),private(ij,k,temc,itemc,fact), &
-    !$omp shared(ijdim,kmin,kmax,a1,a2,ma2,tem,a1_tab,a2_tab)
-    do k  = kmin, kmax
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k,temc,itemc,fact), &
+    ! !$omp shared(ijdim,kmin,kmax,a1,a2,ma2,tem,a1_tab,a2_tab)
+    ! do k  = kmin, kmax
+    ! do ij = 1, ijdim
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        temc  = min( max( tem(ij,k)-TEM00, -30.99_RP ), 0.0_RP ) ! 0C <= T  <  31C
        itemc = int( -temc ) + 1                                 ! 1  <= iT <= 31
        fact  = - ( temc + real(itemc-1,kind=8) )
@@ -2087,9 +2144,10 @@ endif
        ma2(ij,k) = 1.0_RP - a2(ij,k)
 
        a1 (ij,k) = a1(ij,k) * 1.E-3_RP**ma2(ij,k) ! [g->kg]
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
     return
   end subroutine Bergeron_param

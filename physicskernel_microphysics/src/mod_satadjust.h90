@@ -783,17 +783,19 @@ contains
     RTEM00 = 1.0_RP / CONST_TEM00
     PSAT0  = CONST_PSAT0
 
-    !$omp parallel do default(none),private(ij,k,rtem), &
-    !$omp shared(ijdim,kdim,psat,tem,CPovR_liq,LovR_liq,RTEM00,PSAT0)
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k,rtem), &
+    ! !$omp shared(ijdim,kdim,psat,tem,CPovR_liq,LovR_liq,RTEM00,PSAT0)
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        rtem = 1.0_RP / max( tem(ij,k), TEM_MIN )
 
        psat(ij,k) = PSAT0 * ( tem(ij,k) * RTEM00 )**CPovR_liq &
                           * exp( LovR_liq * ( RTEM00 - rtem ) )
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
     return
   end subroutine SATURATION_psat_liq_2D
@@ -889,17 +891,19 @@ contains
     RTEM00 = 1.0_RP / CONST_TEM00
     PSAT0  = CONST_PSAT0
 
-    !$omp parallel do default(none),private(ij,k,rtem), &
-    !$omp shared(ijdim,kdim,psat,tem,CPovR_ice,LovR_ice,RTEM00,PSAT0)
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k,rtem), &
+    ! !$omp shared(ijdim,kdim,psat,tem,CPovR_ice,LovR_ice,RTEM00,PSAT0)
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        rtem = 1.0_RP / max( tem(ij,k), TEM_MIN )
 
        psat(ij,k) = PSAT0 * ( tem(ij,k) * RTEM00 )**CPovR_ice &
                           * exp( LovR_ice * ( RTEM00 - rtem ) )
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
     return
   end subroutine SATURATION_psat_ice_2D
