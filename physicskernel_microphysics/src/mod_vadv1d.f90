@@ -81,23 +81,33 @@ contains
     !---------------------------------------------------------------------------
 
     ! vetical velocity at the half level
-    do k  = kmin+1, kmax
-    do ij = 1, ijdim
+    ! do k  = kmin+1, kmax
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax)}
        wh(ij,k) = 0.5_RP * ( wp(ij,k-1)+wp(ij,k) )
-    enddo
-    enddo
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
 
     ! bottom boundary for wh
     ! top    boundary for wh : same as inner region
-    do ij = 1, ijdim
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij), domSize(ijdim)}
       wh(ij,kmin  ) = wp(ij,kmin  )
       wh(ij,kmin-1) = wp(ij,kmin-1)
       wh(ij,kmax+1) = wp(ij,kmax  )
-    enddo
+    @end parallelRegion
+
+    ! enddo
 
     ! calculation of distance of cell wall during dt
-    do k = kmin+1, kmax
-    do ij = 1, ijdim
+    ! do k = kmin+1, kmax
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax)}
        zdis(ij,k) = dt    * wh(ij,k)                                                              &
                   - dt**2 * wh(ij,k) *     ( wh(ij,k+1)-wh(ij,k-1) ) / ( dz(k-1)+dz(k) ) / 2.0_RP &
                   + dt**3 * wh(ij,k) * ( ( ( wh(ij,k+1)-wh(ij,k-1) ) / ( dz(k-1)+dz(k) ) )**2     &
@@ -105,17 +115,23 @@ contains
                                                       - ( wh(ij,k)-wh(ij,k-1) ) / dz(k-1) )       &
                                                     / ( dz(k-1)+dz(k) ) * 2.0_RP )                &
                                        ) / 6.0_RP
-    enddo
-    enddo
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
 
     ! bottom and top boundary for zdis
-    do ij = 1, ijdim
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij), domSize(ijdim)}
        zdis(ij,kmin-1) = 0.0_RP
        zdis(ij,kmin  ) = dt    * wh(ij,kmin  ) &
                        - dt**2 * wh(ij,kmin  ) * ( wh(ij,kmin+1)-wh(ij,kmin) ) / dz(kmin) / 2.0_RP
        zdis(ij,kmax+1) = dt    * wh(ij,kmax+1) &
                        - dt**2 * wh(ij,kmax+1) * ( wh(ij,kmax+1)-wh(ij,kmax) ) / dz(kmax) / 2.0_RP
-    enddo
+    @end parallelRegion
+
+    ! enddo
 
     ! calculation of kcell
     ! top boundary: rigid [kcell(:,kmax+1) = kmax+1]

@@ -1772,44 +1772,43 @@ endif
 !ESC!
 !ESC!    elseif( precip_scheme_type == 'Flux-Semilag_new' ) then
 
-!TODO-HF: ENABLE
-       ! call precip_transport_new( ijdim,             &
-       !                            rhog,              &
-       !                            rhogvx,            &
-       !                            rhogvy,            &
-       !                            rhogvz,            &
-       !                            rhogw,             &
-       !                            rhoge,             &
-       !                            rhogq,             &
-       !                            rho,               &
-       !                            tem,               &
-       !                            pre,               &
-       !                            vx,                &
-       !                            vy,                &
-       !                            vz,                &
-       !                            w,                 &
-       !                            q,                 &
-       !                            qd,                &
-       !                            z,                 &
-       !                            Vt,                &
-       !                            preciptation_flag, &
-       !                            precip,            &
-       !                            precip_rhoe,       &
-       !                            precip_lh_heat,    &
-       !                            precip_rhophi,     &
-       !                            precip_rhokin,     &
-       !                            gprec,             &
-       !                            gsgam2,            &
-       !                            gsgam2h,           &
-       !                            rgs,               &
-       !                            rgsh,              &
-       !                            ix,                &
-       !                            iy,                &
-       !                            iz,                &
-       !                            jx,                &
-       !                            jy,                &
-       !                            jz,                &
-       !                            dt                 )
+       call precip_transport_new( ijdim,             &
+                                  rhog,              &
+                                  rhogvx,            &
+                                  rhogvy,            &
+                                  rhogvz,            &
+                                  rhogw,             &
+                                  rhoge,             &
+                                  rhogq,             &
+                                  rho,               &
+                                  tem,               &
+                                  pre,               &
+                                  vx,                &
+                                  vy,                &
+                                  vz,                &
+                                  w,                 &
+                                  q,                 &
+                                  qd,                &
+                                  z,                 &
+                                  Vt,                &
+                                  preciptation_flag, &
+                                  precip,            &
+                                  precip_rhoe,       &
+                                  precip_lh_heat,    &
+                                  precip_rhophi,     &
+                                  precip_rhokin,     &
+                                  gprec,             &
+                                  gsgam2,            &
+                                  gsgam2h,           &
+                                  rgs,               &
+                                  rgsh,              &
+                                  ix,                &
+                                  iy,                &
+                                  iz,                &
+                                  jx,                &
+                                  jy,                &
+                                  jz,                &
+                                  dt                 )
 
 !ESC!    else
 !ESC!
