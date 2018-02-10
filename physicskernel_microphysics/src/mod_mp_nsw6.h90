@@ -602,8 +602,8 @@ qr_aut_acc_type="KK2000"
     use mod_satadjust, only: &
        SATURATION_psat_liq_2D,  &
        SATURATION_psat_ice_2D,  &
-       SATURATION_setrange
-       ! SATURATION_adjustment
+       SATURATION_setrange, &
+       SATURATION_adjustment
     use mod_precip_transport, only: &
        precip_transport_new
     use mod_debug, only: kdim, kmin, kmax, nqmax, NQW_STR, NQW_END, &
@@ -1772,44 +1772,43 @@ endif
 !ESC!
 !ESC!    elseif( precip_scheme_type == 'Flux-Semilag_new' ) then
 
-!TODO-HF: ENABLE
-       ! call precip_transport_new( ijdim,             &
-       !                            rhog,              &
-       !                            rhogvx,            &
-       !                            rhogvy,            &
-       !                            rhogvz,            &
-       !                            rhogw,             &
-       !                            rhoge,             &
-       !                            rhogq,             &
-       !                            rho,               &
-       !                            tem,               &
-       !                            pre,               &
-       !                            vx,                &
-       !                            vy,                &
-       !                            vz,                &
-       !                            w,                 &
-       !                            q,                 &
-       !                            qd,                &
-       !                            z,                 &
-       !                            Vt,                &
-       !                            preciptation_flag, &
-       !                            precip,            &
-       !                            precip_rhoe,       &
-       !                            precip_lh_heat,    &
-       !                            precip_rhophi,     &
-       !                            precip_rhokin,     &
-       !                            gprec,             &
-       !                            gsgam2,            &
-       !                            gsgam2h,           &
-       !                            rgs,               &
-       !                            rgsh,              &
-       !                            ix,                &
-       !                            iy,                &
-       !                            iz,                &
-       !                            jx,                &
-       !                            jy,                &
-       !                            jz,                &
-       !                            dt                 )
+       call precip_transport_new( ijdim,             &
+                                  rhog,              &
+                                  rhogvx,            &
+                                  rhogvy,            &
+                                  rhogvz,            &
+                                  rhogw,             &
+                                  rhoge,             &
+                                  rhogq,             &
+                                  rho,               &
+                                  tem,               &
+                                  pre,               &
+                                  vx,                &
+                                  vy,                &
+                                  vz,                &
+                                  w,                 &
+                                  q,                 &
+                                  qd,                &
+                                  z,                 &
+                                  Vt,                &
+                                  preciptation_flag, &
+                                  precip,            &
+                                  precip_rhoe,       &
+                                  precip_lh_heat,    &
+                                  precip_rhophi,     &
+                                  precip_rhokin,     &
+                                  gprec,             &
+                                  gsgam2,            &
+                                  gsgam2h,           &
+                                  rgs,               &
+                                  rgsh,              &
+                                  ix,                &
+                                  iy,                &
+                                  iz,                &
+                                  jx,                &
+                                  jy,                &
+                                  jz,                &
+                                  dt                 )
 
 !ESC!    else
 !ESC!
@@ -1879,34 +1878,32 @@ endif
 
     if ( OPT_EXPLICIT_ICEGEN ) then
 
-      !TODO-HF: ENABLE
-       ! call SATURATION_setrange( 100.0_RP, 90.0_RP )
+       call SATURATION_setrange( 100.0_RP, 90.0_RP )
 
-       ! call SATURATION_adjustment( ijdim,             & ! [IN]
-       !                             kdim,              & ! [IN]
-       !                             rhog  (:,:),       & ! [IN]
-       !                             rhoge (:,:),       & ! [INOUT]
-       !                             rhogq (:,:,:),     & ! [INOUT]
-       !                             tem   (:,:),       & ! [INOUT]
-       !                             q     (:,:,:),     & ! [INOUT]
-       !                             qd    (:,:),       & ! [IN]
-       !                             gsgam2(:,:),       & ! [IN]
-       !                             ice_adjust=.false. ) ! [IN]
+       call SATURATION_adjustment( ijdim,             & ! [IN]
+                                   kdim,              & ! [IN]
+                                   rhog  (:,:),       & ! [IN]
+                                   rhoge (:,:),       & ! [INOUT]
+                                   rhogq (:,:,:),     & ! [INOUT]
+                                   tem   (:,:),       & ! [INOUT]
+                                   q     (:,:,:),     & ! [INOUT]
+                                   qd    (:,:),       & ! [IN]
+                                   gsgam2(:,:),       & ! [IN]
+                                   ice_adjust=.false. ) ! [IN]
 
     else
-        !TODO-HF: ENABLE
-       ! call SATURATION_setrange( 273.16_RP, 233.16_RP )
+       call SATURATION_setrange( 273.16_RP, 233.16_RP )
 
-       ! call SATURATION_adjustment( ijdim,             & ! [IN]
-       !                             kdim,              & ! [IN]
-       !                             rhog  (:,:),       & ! [IN]
-       !                             rhoge (:,:),       & ! [INOUT]
-       !                             rhogq (:,:,:),     & ! [INOUT]
-       !                             tem   (:,:),       & ! [INOUT]
-       !                             q     (:,:,:),     & ! [INOUT]
-       !                             qd    (:,:),       & ! [IN]
-       !                             gsgam2(:,:),       & ! [IN]
-       !                             ice_adjust=.true.  ) ! [IN]
+       call SATURATION_adjustment( ijdim,             & ! [IN]
+                                   kdim,              & ! [IN]
+                                   rhog  (:,:),       & ! [IN]
+                                   rhoge (:,:),       & ! [INOUT]
+                                   rhogq (:,:,:),     & ! [INOUT]
+                                   tem   (:,:),       & ! [INOUT]
+                                   q     (:,:,:),     & ! [INOUT]
+                                   qd    (:,:),       & ! [IN]
+                                   gsgam2(:,:),       & ! [IN]
+                                   ice_adjust=.true.  ) ! [IN]
 
     endif
 

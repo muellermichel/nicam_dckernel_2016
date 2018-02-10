@@ -92,7 +92,7 @@ module mod_satadjust
   public :: SATURATION_rh
   public :: SATURATION_dewtem
 
-  ! public :: SATURATION_adjustment
+  public :: SATURATION_adjustment
 
   public :: SATURATION_enthalpy
   public :: moist_dqsw_dtem_rho
@@ -1260,161 +1260,161 @@ contains
   end subroutine SATURATION_dewtem
 
   !-----------------------------------------------------------------------------
-!   subroutine SATURATION_adjustment( &
-!        ijdim,     &
-!        kdim,      &
-!        rhog,      &
-!        rhoge,     &
-!        rhogq,     &
-!        tem,       &
-!        q,         &
-!        qd,        &
-!        gsgam2,    &
-!        ice_adjust )
-! !ESC!    use mod_runconf, only: &
-! !ESC!       nqmax => TRC_VMAX, &
-! !ESC!       I_QV,              &
-! !ESC!       I_QC,              &
-! !ESC!       I_QI,              &
-! !ESC!       LHV,               &
-! !ESC!       LHF
-!     use mod_thrmdyn, only: &
-!        thrmdyn_cv
-!     implicit none
+  subroutine SATURATION_adjustment( &
+       ijdim,     &
+       kdim,      &
+       rhog,      &
+       rhoge,     &
+       rhogq,     &
+       tem,       &
+       q,         &
+       qd,        &
+       gsgam2,    &
+       ice_adjust )
+!ESC!    use mod_runconf, only: &
+!ESC!       nqmax => TRC_VMAX, &
+!ESC!       I_QV,              &
+!ESC!       I_QC,              &
+!ESC!       I_QI,              &
+!ESC!       LHV,               &
+!ESC!       LHF
+    use mod_thrmdyn, only: &
+       thrmdyn_cv
+    implicit none
 
-!     integer,  intent(in)    :: ijdim
-!     integer,  intent(in)    :: kdim
-!     real(RP), intent(in)    :: rhog  (ijdim,kdim)
-!     real(RP), intent(inout) :: rhoge (ijdim,kdim)
-!     real(RP), intent(inout) :: rhogq (ijdim,kdim,nqmax)
-!     real(RP), intent(inout) :: tem   (ijdim,kdim)
-!     real(RP), intent(inout) :: q     (ijdim,kdim,nqmax)
-!     real(RP), intent(in)    :: qd    (ijdim,kdim)
-!     real(RP), intent(in)    :: gsgam2(ijdim,kdim)
-!     logical,  intent(in)    :: ice_adjust
+    integer,  intent(in)    :: ijdim
+    integer,  intent(in)    :: kdim
+    real(RP), intent(in)    :: rhog  (ijdim,kdim)
+    real(RP), intent(inout) :: rhoge (ijdim,kdim)
+    real(RP), intent(inout) :: rhogq (ijdim,kdim,nqmax)
+    real(RP), intent(inout) :: tem   (ijdim,kdim)
+    real(RP), intent(inout) :: q     (ijdim,kdim,nqmax)
+    real(RP), intent(in)    :: qd    (ijdim,kdim)
+    real(RP), intent(in)    :: gsgam2(ijdim,kdim)
+    logical,  intent(in)    :: ice_adjust
 
-!     real(RP) :: ein_moist(ijdim,kdim)
-!     real(RP) :: qsum     (ijdim,kdim)
-!     real(RP) :: CVtot    (ijdim,kdim)
-!     real(RP) :: rho      (ijdim,kdim)
+    real(RP) :: ein_moist(ijdim,kdim)
+    real(RP) :: qsum     (ijdim,kdim)
+    real(RP) :: CVtot    (ijdim,kdim)
+    real(RP) :: rho      (ijdim,kdim)
 
-!     integer  :: ij, k
-!     !---------------------------------------------------------------------------
+    integer  :: ij, k
+    !---------------------------------------------------------------------------
 
-!     call PROF_rapstart('____Saturation_Adjustment')
+    call PROF_rapstart('____Saturation_Adjustment')
 
-!     ! ein_moist = U1(rho,qsum,T1) : "unsaturated temperature"
-!     if ( I_QI > 0 .AND. ice_adjust ) then
-!        !$omp parallel do default(none),private(ij,k), &
-!        !$omp shared(ijdim,kdim,ein_moist,qsum,rhoge,rhog,q,LHV,LHF,I_QV,I_QC,I_QI)
-!        do k  = 1, kdim
-!        do ij = 1, ijdim
-!           ein_moist(ij,k) = rhoge(ij,k) / rhog(ij,k) &
-!                           + q(ij,k,I_QV) * LHV &
-!                           - q(ij,k,I_QI) * LHF
+    ! ein_moist = U1(rho,qsum,T1) : "unsaturated temperature"
+    if ( I_QI > 0 .AND. ice_adjust ) then
+       !$omp parallel do default(none),private(ij,k), &
+       !$omp shared(ijdim,kdim,ein_moist,qsum,rhoge,rhog,q,LHV,LHF,I_QV,I_QC,I_QI)
+       do k  = 1, kdim
+       do ij = 1, ijdim
+          ein_moist(ij,k) = rhoge(ij,k) / rhog(ij,k) &
+                          + q(ij,k,I_QV) * LHV &
+                          - q(ij,k,I_QI) * LHF
 
-!           qsum     (ij,k) = q(ij,k,I_QV) &
-!                           + q(ij,k,I_QC) &
-!                           + q(ij,k,I_QI)
+          qsum     (ij,k) = q(ij,k,I_QV) &
+                          + q(ij,k,I_QC) &
+                          + q(ij,k,I_QI)
 
-!           q(ij,k,I_QV) = qsum(ij,k)
-!           q(ij,k,I_QC) = 0.0_RP
-!           q(ij,k,I_QI) = 0.0_RP
-!        enddo
-!        enddo
-!        !$omp end parallel do
-!     else
-!        !$omp parallel do default(none),private(ij,k), &
-!        !$omp shared(ijdim,kdim,ein_moist,qsum,rhoge,rhog,q,LHV,I_QV,I_QC)
-!        do k  = 1, kdim
-!        do ij = 1, ijdim
-!           ein_moist(ij,k) = rhoge(ij,k) / rhog(ij,k) &
-!                           + q(ij,k,I_QV) * LHV
+          q(ij,k,I_QV) = qsum(ij,k)
+          q(ij,k,I_QC) = 0.0_RP
+          q(ij,k,I_QI) = 0.0_RP
+       enddo
+       enddo
+       !$omp end parallel do
+    else
+       !$omp parallel do default(none),private(ij,k), &
+       !$omp shared(ijdim,kdim,ein_moist,qsum,rhoge,rhog,q,LHV,I_QV,I_QC)
+       do k  = 1, kdim
+       do ij = 1, ijdim
+          ein_moist(ij,k) = rhoge(ij,k) / rhog(ij,k) &
+                          + q(ij,k,I_QV) * LHV
 
-!           qsum     (ij,k) = q(ij,k,I_QV) &
-!                           + q(ij,k,I_QC)
+          qsum     (ij,k) = q(ij,k,I_QV) &
+                          + q(ij,k,I_QC)
 
-!           q(ij,k,I_QV) = qsum(ij,k)
-!           q(ij,k,I_QC) = 0.0_RP
-!        enddo
-!        enddo
-!        !$omp end parallel do
-!     endif
+          q(ij,k,I_QV) = qsum(ij,k)
+          q(ij,k,I_QC) = 0.0_RP
+       enddo
+       enddo
+       !$omp end parallel do
+    endif
 
-!     call THRMDYN_cv( ijdim,        & ! [IN]
-!                      kdim,         & ! [IN]
-!                      qd   (:,:),   & ! [IN]
-!                      q    (:,:,:), & ! [IN]
-!                      CVtot(:,:)    ) ! [OUT]
+    call THRMDYN_cv( ijdim,        & ! [IN]
+                     kdim,         & ! [IN]
+                     qd   (:,:),   & ! [IN]
+                     q    (:,:,:), & ! [IN]
+                     CVtot(:,:)    ) ! [OUT]
 
-!     !$omp parallel do default(none),private(ij,k), &
-!     !$omp shared(ijdim,kdim,rho,tem,ein_moist,q,rhog,gsgam2,CVtot,I_QV,LHV)
-!     do k  = 1, kdim
-!     do ij = 1, ijdim
-!        rho(ij,k) = rhog(ij,k) / gsgam2(ij,k)
-!        tem(ij,k) = ( ein_moist(ij,k) - q(ij,k,I_QV) * LHV ) / CVtot(ij,k)
-!     enddo
-!     enddo
-!     !$omp end parallel do
+    !$omp parallel do default(none),private(ij,k), &
+    !$omp shared(ijdim,kdim,rho,tem,ein_moist,q,rhog,gsgam2,CVtot,I_QV,LHV)
+    do k  = 1, kdim
+    do ij = 1, ijdim
+       rho(ij,k) = rhog(ij,k) / gsgam2(ij,k)
+       tem(ij,k) = ( ein_moist(ij,k) - q(ij,k,I_QV) * LHV ) / CVtot(ij,k)
+    enddo
+    enddo
+    !$omp end parallel do
 
-!     if ( I_QI > 0 .AND. ice_adjust ) then
-!        call satadjust_all( ijdim,           & ! [IN]
-!                            kdim,            & ! [IN]
-!                            rho      (:,:),  & ! [IN]
-!                            ein_moist(:,:),  & ! [IN]
-!                            qsum     (:,:),  & ! [IN]
-!                            tem      (:,:),  & ! [INOUT]
-!                            q        (:,:,:) ) ! [INOUT]
-!     else
-!        call satadjust_liq( ijdim,           & ! [IN]
-!                            kdim,            & ! [IN]
-!                            rho      (:,:),  & ! [IN]
-!                            ein_moist(:,:),  & ! [IN]
-!                            qsum     (:,:),  & ! [IN]
-!                            tem      (:,:),  & ! [INOUT]
-!                            q        (:,:,:) ) ! [INOUT]
-!     endif
+    if ( I_QI > 0 .AND. ice_adjust ) then
+       call satadjust_all( ijdim,           & ! [IN]
+                           kdim,            & ! [IN]
+                           rho      (:,:),  & ! [IN]
+                           ein_moist(:,:),  & ! [IN]
+                           qsum     (:,:),  & ! [IN]
+                           tem      (:,:),  & ! [INOUT]
+                           q        (:,:,:) ) ! [INOUT]
+    else
+       call satadjust_liq( ijdim,           & ! [IN]
+                           kdim,            & ! [IN]
+                           rho      (:,:),  & ! [IN]
+                           ein_moist(:,:),  & ! [IN]
+                           qsum     (:,:),  & ! [IN]
+                           tem      (:,:),  & ! [INOUT]
+                           q        (:,:,:) ) ! [INOUT]
+    endif
 
-!     !$omp parallel do default(none),private(ij,k), &
-!     !$omp shared(ijdim,kdim,rhogq,rhog,q,I_QV,I_QC)
-!     do k  = 1, kdim
-!     do ij = 1, ijdim
-!        rhogq(ij,k,I_QV) = rhog(ij,k) * q(ij,k,I_QV)
-!        rhogq(ij,k,I_QC) = rhog(ij,k) * q(ij,k,I_QC)
-!     enddo
-!     enddo
-!     !$omp end parallel do
+    !$omp parallel do default(none),private(ij,k), &
+    !$omp shared(ijdim,kdim,rhogq,rhog,q,I_QV,I_QC)
+    do k  = 1, kdim
+    do ij = 1, ijdim
+       rhogq(ij,k,I_QV) = rhog(ij,k) * q(ij,k,I_QV)
+       rhogq(ij,k,I_QC) = rhog(ij,k) * q(ij,k,I_QC)
+    enddo
+    enddo
+    !$omp end parallel do
 
-!     if ( I_QI > 0 .AND. ice_adjust ) then
-!        !$omp parallel do default(none),private(ij,k), &
-!        !$omp shared(ijdim,kdim,rhogq,rhog,q,I_QI)
-!        do k  = 1, kdim
-!        do ij = 1, ijdim
-!           rhogq(ij,k,I_QI) = rhog(ij,k) * q(ij,k,I_QI)
-!        enddo
-!        enddo
-!        !$omp end parallel do
-!     endif
+    if ( I_QI > 0 .AND. ice_adjust ) then
+       !$omp parallel do default(none),private(ij,k), &
+       !$omp shared(ijdim,kdim,rhogq,rhog,q,I_QI)
+       do k  = 1, kdim
+       do ij = 1, ijdim
+          rhogq(ij,k,I_QI) = rhog(ij,k) * q(ij,k,I_QI)
+       enddo
+       enddo
+       !$omp end parallel do
+    endif
 
-!     call THRMDYN_cv( ijdim,        & ! [IN]
-!                      kdim,         & ! [IN]
-!                      qd   (:,:),   & ! [IN]
-!                      q    (:,:,:), & ! [IN]
-!                      CVtot(:,:)    ) ! [OUT]
+    call THRMDYN_cv( ijdim,        & ! [IN]
+                     kdim,         & ! [IN]
+                     qd   (:,:),   & ! [IN]
+                     q    (:,:,:), & ! [IN]
+                     CVtot(:,:)    ) ! [OUT]
 
-!     !$omp parallel do default(none),private(ij,k), &
-!     !$omp shared(ijdim,kdim,rhoge,rhog,tem,CVtot)
-!     do k  = 1, kdim
-!     do ij = 1, ijdim
-!        rhoge(ij,k) = rhog(ij,k) * tem(ij,k) * CVtot(ij,k)
-!     enddo
-!     enddo
-!     !$omp end parallel do
+    !$omp parallel do default(none),private(ij,k), &
+    !$omp shared(ijdim,kdim,rhoge,rhog,tem,CVtot)
+    do k  = 1, kdim
+    do ij = 1, ijdim
+       rhoge(ij,k) = rhog(ij,k) * tem(ij,k) * CVtot(ij,k)
+    enddo
+    enddo
+    !$omp end parallel do
 
-!     call PROF_rapend  ('____Saturation_Adjustment')
+    call PROF_rapend  ('____Saturation_Adjustment')
 
-!     return
-!   end subroutine SATURATION_adjustment
+    return
+  end subroutine SATURATION_adjustment
 
   !-----------------------------------------------------------------------------
   subroutine satadjust_all( &
@@ -1587,140 +1587,140 @@ contains
   end subroutine satadjust_all
 
   !-----------------------------------------------------------------------------
-!   subroutine satadjust_liq( &
-!        ijdim,  &
-!        kdim,   &
-!        rho,    &
-!        Emoist, &
-!        qsum,   &
-!        tem,    &
-!        q       )
-! !ESC!    use mod_const, only: &
-! !ESC!       CONST_EPS,   &
-! !ESC!       CONST_CVdry, &
-! !ESC!       CONST_Rvap,  &
-! !ESC!       CONST_PSAT0, &
-! !ESC!       CONST_TEM00
-! !ESC!    use mod_adm, only: &
-! !ESC!       ADM_proc_stop,    &
-! !ESC!       kmin => ADM_kmin, &
-! !ESC!       kmax => ADM_kmax
-! !ESC!    use mod_runconf, only: &
-! !ESC!       nqmax => TRC_VMAX, &
-! !ESC!       NQW_STR,           &
-! !ESC!       NQW_END,           &
-! !ESC!       I_QV,              &
-! !ESC!       I_QC,              &
-! !ESC!       CVW,               &
-! !ESC!       LHV
-!     use mod_thrmdyn, only: &
-!        thrmdyn_qd
-!     implicit none
+  subroutine satadjust_liq( &
+       ijdim,  &
+       kdim,   &
+       rho,    &
+       Emoist, &
+       qsum,   &
+       tem,    &
+       q       )
+!ESC!    use mod_const, only: &
+!ESC!       CONST_EPS,   &
+!ESC!       CONST_CVdry, &
+!ESC!       CONST_Rvap,  &
+!ESC!       CONST_PSAT0, &
+!ESC!       CONST_TEM00
+!ESC!    use mod_adm, only: &
+!ESC!       ADM_proc_stop,    &
+!ESC!       kmin => ADM_kmin, &
+!ESC!       kmax => ADM_kmax
+!ESC!    use mod_runconf, only: &
+!ESC!       nqmax => TRC_VMAX, &
+!ESC!       NQW_STR,           &
+!ESC!       NQW_END,           &
+!ESC!       I_QV,              &
+!ESC!       I_QC,              &
+!ESC!       CVW,               &
+!ESC!       LHV
+    use mod_thrmdyn, only: &
+       thrmdyn_qd
+    implicit none
 
-!     integer,  intent(in)    :: ijdim
-!     integer,  intent(in)    :: kdim
-!     real(RP), intent(in)    :: rho   (ijdim,kdim)
-!     real(RP), intent(in)    :: Emoist(ijdim,kdim)
-!     real(RP), intent(in)    :: qsum  (ijdim,kdim)
-!     real(RP), intent(inout) :: tem   (ijdim,kdim)
-!     real(RP), intent(inout) :: q     (ijdim,kdim,nqmax)
+    integer,  intent(in)    :: ijdim
+    integer,  intent(in)    :: kdim
+    real(RP), intent(in)    :: rho   (ijdim,kdim)
+    real(RP), intent(in)    :: Emoist(ijdim,kdim)
+    real(RP), intent(in)    :: qsum  (ijdim,kdim)
+    real(RP), intent(inout) :: tem   (ijdim,kdim)
+    real(RP), intent(inout) :: q     (ijdim,kdim,nqmax)
 
-!     real(RP) :: qd(ijdim,kdim)
+    real(RP) :: qd(ijdim,kdim)
 
-!     real(RP) :: rtem, psat, qsat
-!     real(RP) :: CVtot, Emoist_new, dtemp
-!     real(RP) :: dqsat_dT, dCVtot_dT, dEmoist_dT
-!     real(RP) :: RTEM00, PSAT0, Rvap, CVdry, EPS
+    real(RP) :: rtem, psat, qsat
+    real(RP) :: CVtot, Emoist_new, dtemp
+    real(RP) :: dqsat_dT, dCVtot_dT, dEmoist_dT
+    real(RP) :: RTEM00, PSAT0, Rvap, CVdry, EPS
 
-!     real(RP) :: dtemp_criteria
-!     integer,  parameter :: itelim = 100
+    real(RP) :: dtemp_criteria
+    integer,  parameter :: itelim = 100
 
-!     logical  :: converged
-!     integer  :: ij, k, nq, ite
-!     !---------------------------------------------------------------------------
+    logical  :: converged
+    integer  :: ij, k, nq, ite
+    !---------------------------------------------------------------------------
 
-!     dtemp_criteria = 10.0_RP**(-(RP_PREC+1)/2)
+    dtemp_criteria = 10.0_RP**(-(RP_PREC+1)/2)
 
-!     EPS    = CONST_EPS
-!     CVdry  = CONST_CVdry
-!     Rvap   = CONST_Rvap
-!     PSAT0  = CONST_PSAT0
-!     RTEM00 = 1.0_RP / CONST_TEM00
+    EPS    = CONST_EPS
+    CVdry  = CONST_CVdry
+    Rvap   = CONST_Rvap
+    PSAT0  = CONST_PSAT0
+    RTEM00 = 1.0_RP / CONST_TEM00
 
-!     call THRMDYN_qd( ijdim, kdim, q(:,:,:), qd(:,:) )
+    call THRMDYN_qd( ijdim, kdim, q(:,:,:), qd(:,:) )
 
-!     !$omp parallel do default(none), &
-!     !$omp private(ij,k,nq,ite,converged,rtem,                                   &
-!     !$omp         psat,qsat,CVtot,Emoist_new,dtemp,dqsat_dT,dCVtot_dT,dEmoist_dT), &
-!     !$omp shared (ijdim,kmin,kmax,tem,q,qd,rho,Emoist,qsum,                      &
-!     !$omp         CPovR_liq,CVovR_liq,LovR_liq,                                  &
-!     !$omp         NQW_STR,NQW_END,I_QV,I_QC,CVW,LHV,RTEM00,PSAT0,Rvap,CVdry,EPS, &
-!     !$omp         SATURATION_ULIMIT_TEMP,SATURATION_LLIMIT_TEMP,dtemp_criteria)
-!     do k  = kmin, kmax
-!     do ij = 1, ijdim
+    !$omp parallel do default(none), &
+    !$omp private(ij,k,nq,ite,converged,rtem,                                   &
+    !$omp         psat,qsat,CVtot,Emoist_new,dtemp,dqsat_dT,dCVtot_dT,dEmoist_dT), &
+    !$omp shared (ijdim,kmin,kmax,tem,q,qd,rho,Emoist,qsum,                      &
+    !$omp         CPovR_liq,CVovR_liq,LovR_liq,                                  &
+    !$omp         NQW_STR,NQW_END,I_QV,I_QC,CVW,LHV,RTEM00,PSAT0,Rvap,CVdry,EPS, &
+    !$omp         SATURATION_ULIMIT_TEMP,SATURATION_LLIMIT_TEMP,dtemp_criteria)
+    do k  = kmin, kmax
+    do ij = 1, ijdim
 
-!        rtem = 1.0_RP / max( tem(ij,k), TEM_MIN )
+       rtem = 1.0_RP / max( tem(ij,k), TEM_MIN )
 
-!        psat = PSAT0 * ( tem(ij,k) * RTEM00 )**CPovR_liq * exp( LovR_liq * ( RTEM00 - rtem ) )
+       psat = PSAT0 * ( tem(ij,k) * RTEM00 )**CPovR_liq * exp( LovR_liq * ( RTEM00 - rtem ) )
 
-!        qsat = psat / ( rho(ij,k) * Rvap * tem(ij,k) )
+       qsat = psat / ( rho(ij,k) * Rvap * tem(ij,k) )
 
-!        if ( qsum(ij,k)-qsat > EPS ) then
-!           converged = .false.
+       if ( qsum(ij,k)-qsat > EPS ) then
+          converged = .false.
 
-!           do ite = 1, itelim
+          do ite = 1, itelim
 
-!              rtem = 1.0_RP / max( tem(ij,k), TEM_MIN )
+             rtem = 1.0_RP / max( tem(ij,k), TEM_MIN )
 
-!              psat = PSAT0 * ( tem(ij,k) * RTEM00 )**CPovR_liq * exp( LovR_liq * ( RTEM00 - rtem ) )
+             psat = PSAT0 * ( tem(ij,k) * RTEM00 )**CPovR_liq * exp( LovR_liq * ( RTEM00 - rtem ) )
 
-!              qsat = psat / ( rho(ij,k) * Rvap * tem(ij,k) )
+             qsat = psat / ( rho(ij,k) * Rvap * tem(ij,k) )
 
-!              ! Separation
-!              q(ij,k,I_QV) = qsat
-!              q(ij,k,I_QC) = qsum(ij,k)-qsat
+             ! Separation
+             q(ij,k,I_QV) = qsat
+             q(ij,k,I_QC) = qsum(ij,k)-qsat
 
-!              CVtot = qd(ij,k) * CVdry
-!              do nq = NQW_STR, NQW_END
-!                 CVtot = CVtot + q(ij,k,nq) * CVW(nq)
-!              enddo
+             CVtot = qd(ij,k) * CVdry
+             do nq = NQW_STR, NQW_END
+                CVtot = CVtot + q(ij,k,nq) * CVW(nq)
+             enddo
 
-!              Emoist_new = tem(ij,k) * CVtot + q(ij,k,I_QV) * LHV
+             Emoist_new = tem(ij,k) * CVtot + q(ij,k,I_QV) * LHV
 
-!              ! dX/dT
-!              dqsat_dT   = ( LovR_liq / tem(ij,k)**2 + CVovR_liq / tem(ij,k) ) * qsat
+             ! dX/dT
+             dqsat_dT   = ( LovR_liq / tem(ij,k)**2 + CVovR_liq / tem(ij,k) ) * qsat
 
-!              dCVtot_dT  = dqsat_dT * ( CVW(I_QV) - CVW(I_QC) )
+             dCVtot_dT  = dqsat_dT * ( CVW(I_QV) - CVW(I_QC) )
 
-!              dEmoist_dT = tem(ij,k) * dCVtot_dT &
-!                         + CVtot                 &
-!                         + dqsat_dT  * LHV
+             dEmoist_dT = tem(ij,k) * dCVtot_dT &
+                        + CVtot                 &
+                        + dqsat_dT  * LHV
 
-!              dtemp      = ( Emoist_new - Emoist(ij,k) ) / dEmoist_dT
+             dtemp      = ( Emoist_new - Emoist(ij,k) ) / dEmoist_dT
 
-!              tem(ij,k) = tem(ij,k) - dtemp
+             tem(ij,k) = tem(ij,k) - dtemp
 
-!              if ( abs(dtemp) < dtemp_criteria ) then
-!                 converged = .true.
-!                 exit
-!              endif
+             if ( abs(dtemp) < dtemp_criteria ) then
+                converged = .true.
+                exit
+             endif
 
-!              if( tem(ij,k)*0.0_RP /= 0.0_RP) exit
-!           enddo
+             if( tem(ij,k)*0.0_RP /= 0.0_RP) exit
+          enddo
 
-!           if ( .NOT. converged ) then
-!              write(*,*) rho(ij,k),tem(ij,k),q(ij,k,I_QV),q(ij,k,I_QC)
-!              write(*,*) 'xxx [satadjust_liq] not converged! dtemp=', dtemp,ij,k,ite
-!              call ADM_proc_stop
-!           endif
+          if ( .NOT. converged ) then
+             write(*,*) rho(ij,k),tem(ij,k),q(ij,k,I_QV),q(ij,k,I_QC)
+             write(*,*) 'xxx [satadjust_liq] not converged! dtemp=', dtemp,ij,k,ite
+             call ADM_proc_stop
+          endif
 
-!        endif
+       endif
 
-!     enddo
-!     enddo
+    enddo
+    enddo
 
-!     return
-!   end subroutine satadjust_liq
+    return
+  end subroutine satadjust_liq
 
   !-----------------------------------------------------------------------------
   subroutine SATURATION_enthalpy( &
