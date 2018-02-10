@@ -1018,7 +1018,7 @@ contains
     rhogkin(g,kmax+1) = 0.0_RP
     @end parallelRegion
 
-    !$omp end parallel
+    ! !$omp end parallel
 
     call PROF_rapend('CNV_rhogkin',2)
 

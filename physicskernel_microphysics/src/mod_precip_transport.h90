@@ -116,16 +116,14 @@ contains
 !ESC!    use mod_cnvvar, only: &
 !ESC!       cnvvar_rhogkin_in
     use mod_thrmdyn, only: &
-       thrmdyn_qd, &
+       THRMDYN_qd_ijk, &
        thrmdyn_tempre
     use mod_vadv1d, only: &
-       vadv1d_prep,       &
-       vadv1d_getflux_new
+       vadv1d_prep
     use mod_debug, only: kdim, kmin, kmax, &
        nqmax, NQW_STR, NQW_END, &
-       I_QC, I_QR, I_QI, I_QS, I_QG, &
-       CVW, LHF, PRCIP_TRN_ECORRECT, &
-       GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh, &
+       PRCIP_TRN_ECORRECT, &
+       GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, &
        GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact, &
        CONST_GRAV, cnvvar_rhogkin_in
     implicit none
@@ -173,24 +171,6 @@ contains
     real(RP) :: rhogkin_h     (ijdim,kdim)
     real(RP) :: rhogkin_v     (ijdim,kdim)
 
-    real(RP) :: rhoq          (ijdim,kdim)
-    real(RP) :: rhoeq         (ijdim,kdim)
-    real(RP) :: rhophiq       (ijdim,kdim)
-    real(RP) :: rhokin_h      (ijdim,kdim)
-    real(RP) :: rhokin_v      (ijdim,kdim)
-    real(RP) :: rhouq         (ijdim,kdim)
-    real(RP) :: rhovq         (ijdim,kdim)
-    real(RP) :: rhowq         (ijdim,kdim)
-
-    real(RP) :: fprec_q       (ijdim,kdim)
-    real(RP) :: fprec_rhoe    (ijdim,kdim)
-    real(RP) :: fprec_rhophi  (ijdim,kdim)
-    real(RP) :: fprec_rhokin_h(ijdim,kdim)
-    real(RP) :: fprec_rhokin_v(ijdim,kdim)
-    real(RP) :: fprec_rhou    (ijdim,kdim)
-    real(RP) :: fprec_rhov    (ijdim,kdim)
-    real(RP) :: fprec_rhow    (ijdim,kdim)
-
     real(RP) :: drhoq         (ijdim,kdim,nqmax)
     real(RP) :: drhoe         (ijdim,kdim)
     real(RP) :: drhophi       (ijdim,kdim)
@@ -219,7 +199,6 @@ contains
     integer  :: kcellh_min    (kdim)
 
     real(RP) :: Vtermh        (ijdim,kdim)
-    real(RP) :: qh            (ijdim,kdim)
     real(RP) :: rhogh         (ijdim,kdim)
     real(RP) :: ein           (ijdim,kdim)
     real(RP) :: tmp           (ijdim,kdim)
@@ -229,6 +208,11 @@ contains
 
     real(RP) :: C2Wfact       (ijdim,kdim,2)
     real(RP) :: W2Cfact       (ijdim,kdim,2)
+
+    real(RP) :: fprec_q        (ijdim,kdim)
+    real(RP) :: fprec_rhoe     (ijdim,kdim)
+    real(RP) :: fprec_rhophi   (ijdim,kdim)
+    real(RP) :: fprec_rhokin_h (ijdim,kdim)
 
     real(RP) :: GRD_gz_shift  (kdim)
     real(RP) :: GRAV
@@ -374,154 +358,11 @@ contains
                          dt                       ) !--- [IN]
 
        !----- mass
-       !$omp parallel do default(none),private(ij,k), &
-       !$omp shared(nq,ijdim,kdim,rhoq,rhogq,rgs)
-       do k  = 1, kdim
-       do ij = 1, ijdim
-          rhoq(ij,k) = rhogq(ij,k,nq) * rgs(ij,k)
-       enddo
-       enddo
-       !$omp end parallel do
+       call precip_mass_transport(ijdim, nq, kcell, kcell_max, kcell_min, rgs, rhogq, rhogkin_h, q, zdis0, tem, ix, iy, iz, jx, jy, jz, vx, vy, vz, z, fprec_q, fprec_rhoe, fprec_rhophi, fprec_rhokin_h, drhoq, drhoe, drhophi, drhokin_h, drhogu, drhogv)
 
-       call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, & !--- [IN]
-                                GRD_dgz  (:),            & !--- [IN]
-                                rhoq     (:,:),          & !--- [IN]
-                                zdis0    (:,:),          & !--- [IN] [bugfix] H.Yashiro 20120606
-                                kcell    (:,:),          & !--- [IN]
-                                kcell_max(:),            & !--- [IN]
-                                kcell_min(:),            & !--- [IN]
-                                fprec_q  (:,:)           ) !--- [OUT]
-
-       !$omp parallel do default(none),private(ij,k), &
-       !$omp shared(nq,ijdim,kmin,kmax,drhoq,fprec_q,GRD_rdgz)
-       do k  = kmin, kmax
-       do ij = 1, ijdim
-          drhoq(ij,k,nq) = -( fprec_q(ij,k+1)-fprec_q(ij,k) ) * GRD_rdgz(k)
-       enddo
-       enddo
-       !$omp end parallel do
-
-       ! Only for mass tracer
        if (       nq >= NQW_STR &
-            .AND. nq <= NQW_END ) then
-
-          !--- internal energy
-          !--- potential energy
-          !--- horizontal kinetic energy
-          !--- momentum u
-          !--- momentum v
-
-          !$omp parallel do default(none),private(ij,k), &
-          !$omp shared(nq,ijdim,kdim,rhoeq,rhophiq,rhokin_h,rhouq,rhovq,rhogq,q,rgs, &
-          !$omp        tem,z,rhogkin_h,vx,vy,vz,ix,iy,iz,jx,jy,jz,CVW,GRAV)
-          do k  = 1, kdim
-          do ij = 1, ijdim
-             rhoeq   (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * CVW(nq) * tem(ij,k)
-             rhophiq (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * GRAV * z(ij,k)
-             rhokin_h(ij,k) =     q(ij,k,nq) * rgs(ij,k) * rhogkin_h(ij,k)
-             rhouq   (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * ( vx(ij,k) * ix(ij) &
-                                                           + vy(ij,k) * iy(ij) &
-                                                           + vz(ij,k) * iz(ij) )
-             rhovq   (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * ( vx(ij,k) * jx(ij) &
-                                                           + vy(ij,k) * jy(ij) &
-                                                           + vz(ij,k) * jz(ij) )
-          enddo
-          enddo
-          !$omp end parallel do
-
-          call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, &
-                                   GRD_dgz  (:),            &
-                                   rhoeq    (:,:),          &
-                                   zdis0    (:,:),          &
-                                   kcell    (:,:),          &
-                                   kcell_max(:),            &
-                                   kcell_min(:),            &
-                                   fprec_rhoe(:,:)          )
-
-          call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, &
-                                   GRD_dgz  (:),            &
-                                   rhophiq  (:,:),          &
-                                   zdis0    (:,:),          &
-                                   kcell    (:,:),          &
-                                   kcell_max(:),            &
-                                   kcell_min(:),            &
-                                   fprec_rhophi(:,:)        )
-
-          call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, &
-                                   GRD_dgz  (:),            &
-                                   rhokin_h (:,:),          &
-                                   zdis0    (:,:),          &
-                                   kcell    (:,:),          &
-                                   kcell_max(:),            &
-                                   kcell_min(:),            &
-                                   fprec_rhokin_h(:,:)      )
-
-          call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, &
-                                   GRD_dgz  (:),            &
-                                   rhouq    (:,:),          &
-                                   zdis0    (:,:),          &
-                                   kcell    (:,:),          &
-                                   kcell_max(:),            &
-                                   kcell_min(:),            &
-                                   fprec_rhou(:,:)          )
-
-          call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, &
-                                   GRD_dgz  (:),            &
-                                   rhovq    (:,:),          &
-                                   zdis0    (:,:),          &
-                                   kcell    (:,:),          &
-                                   kcell_max(:),            &
-                                   kcell_min(:),            &
-                                   fprec_rhov(:,:)          )
-
-          !$omp parallel default(none),private(ij,k), &
-          !$omp shared(ijdim,kmin,kmax,drhoe,drhophi,drhokin_h,drhogu,drhogv,GRD_rdgz, &
-          !$omp        fprec_rhoe,fprec_rhophi,fprec_rhokin_h,fprec_rhou,fprec_rhov)
-
-          !$omp do
-          do k  = kmin, kmax
-          do ij = 1, ijdim
-             drhoe    (ij,k) = drhoe    (ij,k) -( fprec_rhoe    (ij,k+1)-fprec_rhoe    (ij,k) ) * GRD_rdgz(k)
-          enddo
-          enddo
-          !$omp end do nowait
-
-          !$omp do
-          do k  = kmin, kmax
-          do ij = 1, ijdim
-             drhophi  (ij,k) = drhophi  (ij,k) -( fprec_rhophi  (ij,k+1)-fprec_rhophi  (ij,k) ) * GRD_rdgz(k)
-          enddo
-          enddo
-          !$omp end do nowait
-
-          !$omp do
-          do k  = kmin, kmax
-          do ij = 1, ijdim
-             drhokin_h(ij,k) = drhokin_h(ij,k) -( fprec_rhokin_h(ij,k+1)-fprec_rhokin_h(ij,k) ) * GRD_rdgz(k)
-          enddo
-          enddo
-          !$omp end do nowait
-
-          !$omp do
-          do k  = kmin, kmax
-          do ij = 1, ijdim
-             drhogu   (ij,k) = drhogu   (ij,k) -( fprec_rhou    (ij,k+1)-fprec_rhou    (ij,k) ) * GRD_rdgz(k)
-          enddo
-          enddo
-          !$omp end do nowait
-
-          !$omp do
-          do k  = kmin, kmax
-          do ij = 1, ijdim
-             drhogv   (ij,k) = drhogv   (ij,k) -( fprec_rhov    (ij,k+1)-fprec_rhov    (ij,k) ) * GRD_rdgz(k)
-          enddo
-          enddo
-          !$omp end do
-
-          !$omp end parallel
-
+        .AND. nq <= NQW_END ) then
           !--- half level
-
           !$omp parallel default(none),private(ij,k), &
           !$omp shared(ijdim,kmin,kmax,Vtermh,Vterm,nq)
 
@@ -554,144 +395,8 @@ contains
                             kcellh_min  (:),           &
                             dt                         )
 
-          !$omp parallel default(none),private(ij,k), &
-          !$omp shared(nq,ijdim,kmin,kmax,qh,q,rgsh)
-
-          !$omp do
-          do k  = kmin+1, kmax
-          do ij = 1, ijdim
-             qh(ij,k) = 0.5_RP * ( q(ij,k,nq) + q(ij,k-1,nq) ) * rgsh(ij,k)
-          enddo
-          enddo
-          !$omp end do nowait
-
-          !$omp do
-          do ij = 1, ijdim
-             qh(ij,kmin-1) = 0.0_RP
-             qh(ij,kmin  ) = 0.0_RP
-             qh(ij,kmax+1) = 0.0_RP
-          enddo
-          !$omp end do
-
-          !$omp end parallel
-
-          !--- vertical kinetic energy
-          !--- moment w
-          !--- half level
-
-          !$omp parallel do default(none),private(ij,k), &
-          !$omp shared(nq,ijdim,kmin,kmax,rhokin_v,rhowq,qh,rhogkin_v,rhogw)
-          do k  = kmin+1, kmax
-          do ij = 1, ijdim
-             rhokin_v(ij,k) = qh(ij,k) * rhogkin_v(ij,k)
-             rhowq   (ij,k) = qh(ij,k) * rhogw    (ij,k)
-          enddo
-          enddo
-          !$omp end parallel do
-
-          call vadv1d_getflux_new( ijdim, kdim, kmin+1, kmax, &
-                                   GRD_dgzh  (:),             &
-                                   rhokin_v  (:,:),           &
-                                   zdis0h    (:,:),           & ! [bugfix] H.Yashiro 20120606
-                                   kcellh    (:,:),           &
-                                   kcellh_max(:),             &
-                                   kcellh_min(:),             &
-                                   fprec_rhokin_v(:,:)        )
-
-          call vadv1d_getflux_new( ijdim, kdim, kmin+1, kmax, &
-                                   GRD_dgzh  (:),             &
-                                   rhowq     (:,:),           &
-                                   zdis0h    (:,:),           &
-                                   kcellh    (:,:),           &
-                                   kcellh_max(:),             &
-                                   kcellh_min(:),             &
-                                   fprec_rhow(:,:)            )
-
-          !$omp parallel do default(none),private(ij,k), &
-          !$omp shared(ijdim,kmin,kmax,drhokin_v,drhogw,fprec_rhokin_v,fprec_rhow,GRD_rdgzh)
-          do k  = kmin+1, kmax
-          do ij = 1, ijdim
-             drhokin_v(ij,k) = drhokin_v(ij,k) -( fprec_rhokin_v(ij,k)-fprec_rhokin_v(ij,k-1) ) * GRD_rdgzh(k)
-             drhogw   (ij,k) = drhogw   (ij,k) -( fprec_rhow    (ij,k)-fprec_rhow    (ij,k-1) ) * GRD_rdgzh(k)
-          enddo
-          enddo
-          !$omp end parallel do
-
-          ! precipitation on the ground
-          if ( nq == I_QC ) then
-
-             !$omp parallel do default(none),private(ij), &
-             !$omp shared(ijdim,kmin,precip,fprec_q,dt)
-             do ij = 1, ijdim
-                precip(ij,1) = precip(ij,1) - fprec_q(ij,kmin) / dt
-             enddo
-             !$omp end parallel do
-
-          elseif( nq == I_QR ) then
-
-             !$omp parallel do default(none),private(ij), &
-             !$omp shared(ijdim,kmin,precip,fprec_q,dt)
-             do ij = 1, ijdim
-                precip(ij,1) = precip(ij,1) - fprec_q(ij,kmin) / dt
-             enddo
-             !$omp end parallel do
-
-             !$omp parallel default(none),private(ij,k), &
-             !$omp shared(ijdim,kmin,kmax,frain,fprec_q,dt)
-
-             !$omp do
-             do k  = kmin, kmax
-             do ij = 1, ijdim
-                frain(ij,k) = -fprec_q(ij,k) / dt
-             enddo
-             enddo
-             !$omp end do nowait
-
-             !$omp do
-             do ij = 1, ijdim
-                frain(ij,kmin-1) = 0.0_RP
-                frain(ij,kmax+1) = 0.0_RP
-             enddo
-             !$omp end do
-
-             !$omp end parallel
-
-          elseif( nq == I_QI .OR. nq == I_QS .OR. nq == I_QG ) then
-
-             !$omp parallel do default(none),private(ij), &
-             !$omp shared(ijdim,kmin,precip,fprec_q,dt,precip_lh_heat,LHF)
-             do ij = 1, ijdim
-                precip(ij,2) = precip(ij,2) - fprec_q(ij,kmin) / dt
-                precip_lh_heat(ij) = precip_lh_heat(ij) + fprec_q(ij,kmin) * LHF / dt
-             enddo
-             !$omp end parallel do
-
-          endif
-
-          if ( present(precip_trc) ) then ! [Add] 2012/02/01 T.Seiki
-
-             !$omp parallel do default(none),private(ij), &
-             !$omp shared(nq,ijdim,kmin,precip_trc,fprec_q,dt)
-             do ij = 1, ijdim
-                precip_trc(ij,nq) = precip_trc(ij,nq) - fprec_q(ij,kmin) / dt
-             enddo
-             !$omp end parallel do
-
-          endif
-
-          !$omp parallel do default(none),private(ij), &
-          !$omp shared(ijdim,kmin,precip_rhoe,precip_rhophi,precip_rhokin,     &
-          !$omp        fprec_rhoe,fprec_rhophi,fprec_rhokin_h,fprec_rhokin_v,dt)
-          do ij = 1, ijdim
-             precip_rhoe  (ij) = precip_rhoe  (ij) - fprec_rhoe    (ij,kmin) / dt
-             precip_rhophi(ij) = precip_rhophi(ij) - fprec_rhophi  (ij,kmin) / dt
-             precip_rhokin(ij) = precip_rhokin(ij) - fprec_rhokin_h(ij,kmin) / dt &
-                                                   - fprec_rhokin_v(ij,kmin) / dt
-          enddo
-          !$omp end parallel do
-
-       endif
-
+          call precip_energy_moment_transport(ijdim, nq, dt, kcellh, kcellh_max, kcellh_min, rgsh, q, zdis0h, fprec_q, fprec_rhoe, fprec_rhophi, fprec_rhokin_h, rhogw, rhogkin_v, drhokin_v, drhogw, precip, precip_rhoe, precip_lh_heat, precip_rhophi, precip_rhokin, frain)
+      end if
     enddo ! tracer LOOP
 
     ! Change in internal energy comes from precipitation and dissipation of kinetic energy due to drag force.
@@ -891,7 +596,7 @@ contains
     enddo
     !$omp end parallel do
 
-    call thrmdyn_qd( ijdim,     & ! [IN]
+    call THRMDYN_qd_ijk( ijdim,     & ! [IN]
                      kdim,      & ! [IN]
                      q (:,:,:), & ! [IN]
                      qd(:,:)    ) ! [OUT]
@@ -908,5 +613,391 @@ contains
 
     return
   end subroutine precip_transport_new
+
+  subroutine precip_mass_transport(ijdim, nq, kcell, kcell_max, kcell_min, rgs, rhogq, rhogkin_h, q, zdis0, tem, ix, iy, iz, jx, jy, jz, vx, vy, vz, z, fprec_q, fprec_rhoe, fprec_rhophi, fprec_rhokin_h, drhoq, drhoe, drhophi, drhokin_h, drhogu, drhogv)
+    use mod_debug, only: kdim, kmin, kmax, &
+       nqmax, NQW_STR, NQW_END, &
+       CVW, LHF, GRD_dgz, GRD_rdgz, CONST_GRAV
+    use mod_vadv1d, only: vadv1d_getflux_new
+    implicit none
+
+    integer,  intent(in)    :: ijdim
+    integer,  intent(in)    :: nq
+    integer,  intent(in)    :: kcell             (ijdim,kdim)
+    integer,  intent(in)    :: kcell_max         (kdim)
+    integer,  intent(in)    :: kcell_min         (kdim)
+    real(RP), intent(in)    :: rgs               (ijdim,kdim)
+    real(RP), intent(in)    :: rhogq             (ijdim,kdim,nqmax)
+    real(RP), intent(in)    :: rhogkin_h         (ijdim,kdim)
+    real(RP), intent(in)    :: q                 (ijdim,kdim,nqmax)
+    real(RP), intent(in)    :: zdis0             (ijdim,kdim)
+    real(RP), intent(in)    :: tem               (ijdim,kdim)
+    real(RP), intent(in)    :: ix                (ijdim)
+    real(RP), intent(in)    :: iy                (ijdim)
+    real(RP), intent(in)    :: iz                (ijdim)
+    real(RP), intent(in)    :: jx                (ijdim)
+    real(RP), intent(in)    :: jy                (ijdim)
+    real(RP), intent(in)    :: jz                (ijdim)
+    real(RP), intent(in)    :: vx                (ijdim,kdim)
+    real(RP), intent(in)    :: vy                (ijdim,kdim)
+    real(RP), intent(in)    :: vz                (ijdim,kdim)
+    real(RP), intent(in)    :: z                 (ijdim,kdim)
+    real(RP), intent(out)   :: fprec_q           (ijdim,kdim)
+    real(RP), intent(out)   :: fprec_rhoe        (ijdim,kdim)
+    real(RP), intent(out)   :: fprec_rhophi      (ijdim,kdim)
+    real(RP), intent(out)   :: fprec_rhokin_h    (ijdim,kdim)
+    real(RP), intent(out)   :: drhoq             (ijdim,kdim,nqmax)
+    real(RP), intent(out)   :: drhoe             (ijdim,kdim)
+    real(RP), intent(out)   :: drhophi           (ijdim,kdim)
+    real(RP), intent(out)   :: drhokin_h         (ijdim,kdim)
+    real(RP), intent(out)   :: drhogu            (ijdim,kdim)
+    real(RP), intent(out)   :: drhogv            (ijdim,kdim)
+
+    real(RP) :: rhoq          (ijdim,kdim)
+    real(RP) :: rhoeq         (ijdim,kdim)
+    real(RP) :: rhophiq       (ijdim,kdim)
+    real(RP) :: rhokin_h      (ijdim,kdim)
+    real(RP) :: rhouq         (ijdim,kdim)
+    real(RP) :: rhovq         (ijdim,kdim)
+
+    real(RP) :: fprec_rhou    (ijdim,kdim)
+    real(RP) :: fprec_rhov    (ijdim,kdim)
+
+    real(RP) :: GRAV
+
+    integer  :: ij, k
+
+    GRAV = CONST_GRAV
+
+    !$omp parallel do default(none),private(ij,k), &
+    !$omp shared(nq,ijdim,kdim,rhoq,rhogq,rgs)
+    do k  = 1, kdim
+    do ij = 1, ijdim
+      rhoq(ij,k) = rhogq(ij,k,nq) * rgs(ij,k)
+    enddo
+    enddo
+    !$omp end parallel do
+
+    call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, & !--- [IN]
+                            GRD_dgz  (:),            & !--- [IN]
+                            rhoq     (:,:),          & !--- [IN]
+                            zdis0    (:,:),          & !--- [IN] [bugfix] H.Yashiro 20120606
+                            kcell    (:,:),          & !--- [IN]
+                            kcell_max(:),            & !--- [IN]
+                            kcell_min(:),            & !--- [IN]
+                            fprec_q  (:,:)           ) !--- [OUT]
+
+    !$omp parallel do default(none),private(ij,k), &
+    !$omp shared(nq,ijdim,kmin,kmax,drhoq,fprec_q,GRD_rdgz)
+    do k  = kmin, kmax
+    do ij = 1, ijdim
+      drhoq(ij,k,nq) = -( fprec_q(ij,k+1)-fprec_q(ij,k) ) * GRD_rdgz(k)
+    enddo
+    enddo
+    !$omp end parallel do
+
+    ! Only for mass tracer
+    if (       nq >= NQW_STR &
+        .AND. nq <= NQW_END ) then
+
+      !--- internal energy
+      !--- potential energy
+      !--- horizontal kinetic energy
+      !--- momentum u
+      !--- momentum v
+
+      !$omp parallel do default(none),private(ij,k), &
+      !$omp shared(nq,ijdim,kdim,rhoeq,rhophiq,rhokin_h,rhouq,rhovq,rhogq,q,rgs, &
+      !$omp        tem,z,rhogkin_h,vx,vy,vz,ix,iy,iz,jx,jy,jz,CVW,GRAV)
+      do k  = 1, kdim
+      do ij = 1, ijdim
+         rhoeq   (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * CVW(nq) * tem(ij,k)
+         rhophiq (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * GRAV * z(ij,k)
+         rhokin_h(ij,k) =     q(ij,k,nq) * rgs(ij,k) * rhogkin_h(ij,k)
+         rhouq   (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * ( vx(ij,k) * ix(ij) &
+                                                       + vy(ij,k) * iy(ij) &
+                                                       + vz(ij,k) * iz(ij) )
+         rhovq   (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * ( vx(ij,k) * jx(ij) &
+                                                       + vy(ij,k) * jy(ij) &
+                                                       + vz(ij,k) * jz(ij) )
+      enddo
+      enddo
+      !$omp end parallel do
+
+      call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, &
+                               GRD_dgz  (:),            &
+                               rhoeq    (:,:),          &
+                               zdis0    (:,:),          &
+                               kcell    (:,:),          &
+                               kcell_max(:),            &
+                               kcell_min(:),            &
+                               fprec_rhoe(:,:)          )
+
+      call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, &
+                               GRD_dgz  (:),            &
+                               rhophiq  (:,:),          &
+                               zdis0    (:,:),          &
+                               kcell    (:,:),          &
+                               kcell_max(:),            &
+                               kcell_min(:),            &
+                               fprec_rhophi(:,:)        )
+
+      call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, &
+                               GRD_dgz  (:),            &
+                               rhokin_h (:,:),          &
+                               zdis0    (:,:),          &
+                               kcell    (:,:),          &
+                               kcell_max(:),            &
+                               kcell_min(:),            &
+                               fprec_rhokin_h(:,:)      )
+
+      call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, &
+                               GRD_dgz  (:),            &
+                               rhouq    (:,:),          &
+                               zdis0    (:,:),          &
+                               kcell    (:,:),          &
+                               kcell_max(:),            &
+                               kcell_min(:),            &
+                               fprec_rhou(:,:)          )
+
+      call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, &
+                               GRD_dgz  (:),            &
+                               rhovq    (:,:),          &
+                               zdis0    (:,:),          &
+                               kcell    (:,:),          &
+                               kcell_max(:),            &
+                               kcell_min(:),            &
+                               fprec_rhov(:,:)          )
+
+      !$omp parallel default(none),private(ij,k), &
+      !$omp shared(ijdim,kmin,kmax,drhoe,drhophi,drhokin_h,drhogu,drhogv,GRD_rdgz, &
+      !$omp        fprec_rhoe,fprec_rhophi,fprec_rhokin_h,fprec_rhou,fprec_rhov)
+
+      !$omp do
+      do k  = kmin, kmax
+      do ij = 1, ijdim
+         drhoe    (ij,k) = drhoe    (ij,k) -( fprec_rhoe    (ij,k+1)-fprec_rhoe    (ij,k) ) * GRD_rdgz(k)
+      enddo
+      enddo
+      !$omp end do nowait
+
+      !$omp do
+      do k  = kmin, kmax
+      do ij = 1, ijdim
+         drhophi  (ij,k) = drhophi  (ij,k) -( fprec_rhophi  (ij,k+1)-fprec_rhophi  (ij,k) ) * GRD_rdgz(k)
+      enddo
+      enddo
+      !$omp end do nowait
+
+      !$omp do
+      do k  = kmin, kmax
+      do ij = 1, ijdim
+         drhokin_h(ij,k) = drhokin_h(ij,k) -( fprec_rhokin_h(ij,k+1)-fprec_rhokin_h(ij,k) ) * GRD_rdgz(k)
+      enddo
+      enddo
+      !$omp end do nowait
+
+      !$omp do
+      do k  = kmin, kmax
+      do ij = 1, ijdim
+         drhogu   (ij,k) = drhogu   (ij,k) -( fprec_rhou    (ij,k+1)-fprec_rhou    (ij,k) ) * GRD_rdgz(k)
+      enddo
+      enddo
+      !$omp end do nowait
+
+      !$omp do
+      do k  = kmin, kmax
+      do ij = 1, ijdim
+         drhogv   (ij,k) = drhogv   (ij,k) -( fprec_rhov    (ij,k+1)-fprec_rhov    (ij,k) ) * GRD_rdgz(k)
+      enddo
+      enddo
+      !$omp end do
+
+      !$omp end parallel
+
+    endif
+  end subroutine precip_mass_transport
+
+  subroutine precip_energy_moment_transport(ijdim, nq, dt, kcellh, kcellh_max, kcellh_min, rgsh, q, zdis0h, fprec_q, fprec_rhoe, fprec_rhophi, fprec_rhokin_h, rhogw, rhogkin_v, drhokin_v, drhogw, precip, precip_rhoe, precip_lh_heat, precip_rhophi, precip_rhokin, frain)
+    use mod_debug, only: kdim, kmin, kmax, &
+       nqmax, &
+       I_QC, I_QR, I_QI, I_QS, I_QG, &
+       CVW, LHF, GRD_rdgzh, CONST_GRAV
+    use mod_vadv1d, only: vadv1d_getflux_new
+    implicit none
+
+    integer,  intent(in)    :: ijdim
+    integer,  intent(in)    :: nq
+    real(RP), intent(in)    :: dt
+    integer,  intent(in)    :: kcellh            (ijdim,kdim)
+    integer,  intent(in)    :: kcellh_max        (kdim)
+    integer,  intent(in)    :: kcellh_min        (kdim)
+    real(RP), intent(in)    :: rgsh              (ijdim,kdim)
+    real(RP), intent(in)    :: q                 (ijdim,kdim,nqmax)
+    real(RP), intent(in)    :: zdis0h            (ijdim,kdim)
+    real(RP), intent(in)    :: fprec_q           (ijdim,kdim)
+    real(RP), intent(in)    :: fprec_rhoe        (ijdim,kdim)
+    real(RP), intent(in)    :: fprec_rhophi      (ijdim,kdim)
+    real(RP), intent(in)    :: fprec_rhokin_h    (ijdim,kdim)
+    real(RP), intent(in)    :: rhogw             (ijdim,kdim)
+    real(RP), intent(inout) :: rhogkin_v         (ijdim,kdim)
+    real(RP), intent(inout) :: drhokin_v         (ijdim,kdim)
+    real(RP), intent(inout) :: drhogw            (ijdim,kdim)
+    real(RP), intent(inout) :: precip            (ijdim,2)
+    real(RP), intent(inout) :: precip_rhoe       (ijdim)
+    real(RP), intent(inout) :: precip_lh_heat    (ijdim)
+    real(RP), intent(inout) :: precip_rhophi     (ijdim)
+    real(RP), intent(inout) :: precip_rhokin     (ijdim)
+    real(RP), intent(out)   :: frain             (ijdim,kdim)
+    ! real(RP), intent(inout), optional :: precip_trc(ijdim,nqmax) ! [Add] 2012/02/01 T.Seiki
+
+    real(RP) :: qh            (ijdim,kdim)
+    real(RP) :: rhokin_v      (ijdim,kdim)
+    real(RP) :: rhowq         (ijdim,kdim)
+    real(RP) :: fprec_rhokin_v(ijdim,kdim)
+    real(RP) :: fprec_rhow    (ijdim,kdim)
+
+    real(RP) :: GRAV
+
+    integer  :: ij, k
+
+    GRAV = CONST_GRAV
+
+    !$omp parallel default(none),private(ij,k), &
+    !$omp shared(nq,ijdim,kmin,kmax,qh,q,rgsh)
+
+    !$omp do
+    do k  = kmin+1, kmax
+    do ij = 1, ijdim
+       qh(ij,k) = 0.5_RP * ( q(ij,k,nq) + q(ij,k-1,nq) ) * rgsh(ij,k)
+    enddo
+    enddo
+    !$omp end do nowait
+
+    !$omp do
+    do ij = 1, ijdim
+       qh(ij,kmin-1) = 0.0_RP
+       qh(ij,kmin  ) = 0.0_RP
+       qh(ij,kmax+1) = 0.0_RP
+    enddo
+    !$omp end do
+
+    !$omp end parallel
+
+    !--- vertical kinetic energy
+    !--- moment w
+    !--- half level
+
+    !$omp parallel do default(none),private(ij,k), &
+    !$omp shared(nq,ijdim,kmin,kmax,rhokin_v,rhowq,qh,rhogkin_v,rhogw)
+    do k  = kmin+1, kmax
+    do ij = 1, ijdim
+       rhokin_v(ij,k) = qh(ij,k) * rhogkin_v(ij,k)
+       rhowq   (ij,k) = qh(ij,k) * rhogw    (ij,k)
+    enddo
+    enddo
+    !$omp end parallel do
+
+    call vadv1d_getflux_new( ijdim, kdim, kmin+1, kmax, &
+                             GRD_dgzh  (:),             &
+                             rhokin_v  (:,:),           &
+                             zdis0h    (:,:),           & ! [bugfix] H.Yashiro 20120606
+                             kcellh    (:,:),           &
+                             kcellh_max(:),             &
+                             kcellh_min(:),             &
+                             fprec_rhokin_v(:,:)        )
+
+    call vadv1d_getflux_new( ijdim, kdim, kmin+1, kmax, &
+                             GRD_dgzh  (:),             &
+                             rhowq     (:,:),           &
+                             zdis0h    (:,:),           &
+                             kcellh    (:,:),           &
+                             kcellh_max(:),             &
+                             kcellh_min(:),             &
+                             fprec_rhow(:,:)            )
+
+    !$omp parallel do default(none),private(ij,k), &
+    !$omp shared(ijdim,kmin,kmax,drhokin_v,drhogw,fprec_rhokin_v,fprec_rhow,GRD_rdgzh)
+    do k  = kmin+1, kmax
+    do ij = 1, ijdim
+       drhokin_v(ij,k) = drhokin_v(ij,k) -( fprec_rhokin_v(ij,k)-fprec_rhokin_v(ij,k-1) ) * GRD_rdgzh(k)
+       drhogw   (ij,k) = drhogw   (ij,k) -( fprec_rhow    (ij,k)-fprec_rhow    (ij,k-1) ) * GRD_rdgzh(k)
+    enddo
+    enddo
+    !$omp end parallel do
+
+    ! precipitation on the ground
+    if ( nq == I_QC ) then
+
+       !$omp parallel do default(none),private(ij), &
+       !$omp shared(ijdim,kmin,precip,fprec_q,dt)
+       do ij = 1, ijdim
+          precip(ij,1) = precip(ij,1) - fprec_q(ij,kmin) / dt
+       enddo
+       !$omp end parallel do
+
+    elseif( nq == I_QR ) then
+
+       !$omp parallel do default(none),private(ij), &
+       !$omp shared(ijdim,kmin,precip,fprec_q,dt)
+       do ij = 1, ijdim
+          precip(ij,1) = precip(ij,1) - fprec_q(ij,kmin) / dt
+       enddo
+       !$omp end parallel do
+
+       !$omp parallel default(none),private(ij,k), &
+       !$omp shared(ijdim,kmin,kmax,frain,fprec_q,dt)
+
+       !$omp do
+       do k  = kmin, kmax
+       do ij = 1, ijdim
+          frain(ij,k) = -fprec_q(ij,k) / dt
+       enddo
+       enddo
+       !$omp end do nowait
+
+       !$omp do
+       do ij = 1, ijdim
+          frain(ij,kmin-1) = 0.0_RP
+          frain(ij,kmax+1) = 0.0_RP
+       enddo
+       !$omp end do
+
+       !$omp end parallel
+
+    elseif( nq == I_QI .OR. nq == I_QS .OR. nq == I_QG ) then
+
+       !$omp parallel do default(none),private(ij), &
+       !$omp shared(ijdim,kmin,precip,fprec_q,dt,precip_lh_heat,LHF)
+       do ij = 1, ijdim
+          precip(ij,2) = precip(ij,2) - fprec_q(ij,kmin) / dt
+          precip_lh_heat(ij) = precip_lh_heat(ij) + fprec_q(ij,kmin) * LHF / dt
+       enddo
+       !$omp end parallel do
+
+    endif
+
+    ! if ( present(precip_trc) ) then ! [Add] 2012/02/01 T.Seiki
+
+    !    !$omp parallel do default(none),private(ij), &
+    !    !$omp shared(nq,ijdim,kmin,precip_trc,fprec_q,dt)
+    !    do ij = 1, ijdim
+    !       precip_trc(ij,nq) = precip_trc(ij,nq) - fprec_q(ij,kmin) / dt
+    !    enddo
+    !    !$omp end parallel do
+
+    ! endif
+
+    !$omp parallel do default(none),private(ij), &
+    !$omp shared(ijdim,kmin,precip_rhoe,precip_rhophi,precip_rhokin,     &
+    !$omp        fprec_rhoe,fprec_rhophi,fprec_rhokin_h,fprec_rhokin_v,dt)
+    do ij = 1, ijdim
+       precip_rhoe  (ij) = precip_rhoe  (ij) - fprec_rhoe    (ij,kmin) / dt
+       precip_rhophi(ij) = precip_rhophi(ij) - fprec_rhophi  (ij,kmin) / dt
+       precip_rhokin(ij) = precip_rhokin(ij) - fprec_rhokin_h(ij,kmin) / dt &
+                                             - fprec_rhokin_v(ij,kmin) / dt
+    enddo
+    !$omp end parallel do
+  end subroutine precip_energy_moment_transport
 
 end module mod_precip_transport
