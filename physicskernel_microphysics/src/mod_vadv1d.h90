@@ -188,44 +188,44 @@ contains
        endif
     enddo
 
-    ! ! determine the kcell at each point.
-    ! ! do k  = kmin, kmax
-    ! ! do ij = 1, ijdim
-    ! @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
-    !    if (       kcell_min(k) == k &
-    !         .AND. kcell_max(k) == k ) then
+    ! determine the kcell at each point.
+    ! do k  = kmin, kmax
+    ! do ij = 1, ijdim
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+       if (       kcell_min(k) == k &
+            .AND. kcell_max(k) == k ) then
 
-    !       kcell(ij,k) = k
+          kcell(ij,k) = k
 
-    !    else
+       else
 
-    !       kcell(ij,k) = 0
+          kcell(ij,k) = 0
 
-    !       do k2 = kcell_min(k), kcell_max(k)
-    !          kcell(ij,k) = max ( kcell(ij,k), &
-    !                              int( k2  * sign ( 1.0_RP, (zh(k)-zdis(ij,k))-zh(k2)   ) &
-    !                                       * sign ( 1.0_RP, zh(k2+1)-(zh(k)-zdis(ij,k)) ) ) &
-    !                            )
-    !       enddo
+          do k2 = kcell_min(k), kcell_max(k)
+             kcell(ij,k) = max ( kcell(ij,k), &
+                                 int( k2  * sign ( 1.0_RP, (zh(k)-zdis(ij,k))-zh(k2)   ) &
+                                          * sign ( 1.0_RP, zh(k2+1)-(zh(k)-zdis(ij,k)) ) ) &
+                               )
+          enddo
 
-    !    endif
-    ! @end parallelRegion
-    ! ! enddo
-    ! ! enddo
+       endif
+    @end parallelRegion
+    ! enddo
+    ! enddo
 
-    ! ! do k  = 1, kdim
-    ! ! do ij = 1, ijdim
-    ! @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
-    !    if ( kcell(ij,k) == 0 ) then
-    !       kcell(ij,k) = kmin
-    !    endif
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+       if ( kcell(ij,k) == 0 ) then
+          kcell(ij,k) = kmin
+       endif
 
-    !    if ( kcell(ij,k) == kmax+1 ) then
-    !       kcell(ij,k) = kmax
-    !    endif
-    ! @end parallelRegion
-    ! ! enddo
-    ! ! enddo
+       if ( kcell(ij,k) == kmax+1 ) then
+          kcell(ij,k) = kmax
+       endif
+    @end parallelRegion
+    ! enddo
+    ! enddo
 
     return
   end subroutine vadv1d_prep
