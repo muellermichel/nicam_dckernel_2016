@@ -233,41 +233,57 @@ contains
 
     GRAV = CONST_GRAV
 
-    !$omp parallel do default(none),private(ij,k), &
-    !$omp shared(ijdim,kmin,kmax,C2Wfact,GRD_afact,GRD_bfact,GSGAM2,GSGAM2H)
-    do k  = kmin, kmax+1
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k), &
+    ! !$omp shared(ijdim,kmin,kmax,C2Wfact,GRD_afact,GRD_bfact,GSGAM2,GSGAM2H)
+    ! do k  = kmin, kmax+1
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax+1)}
        C2Wfact(ij,k,1) = GRD_afact(k) / GSGAM2(ij,k  ) * GSGAM2H(ij,k)
        C2Wfact(ij,k,2) = GRD_bfact(k) / GSGAM2(ij,k-1) * GSGAM2H(ij,k)
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
 
-    !$omp parallel do default(none),private(ij), &
-    !$omp shared(ijdim,kmin,C2Wfact)
-    do ij = 1, ijdim
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
+
+    ! !$omp parallel do default(none),private(ij), &
+    ! !$omp shared(ijdim,kmin,C2Wfact)
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij), domSize(ijdim)}
        C2Wfact(ij,kmin-1,1) = 0.0_RP
        C2Wfact(ij,kmin-1,2) = 0.0_RP
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
 
-    !$omp parallel do default(none),private(ij,k), &
-    !$omp shared(ijdim,kmin,kmax,W2Cfact,GRD_cfact,GRD_dfact,GSGAM2,GSGAM2H)
-    do k  = kmin-1, kmax
-    do ij = 1, ijdim
+    ! enddo
+    ! !$omp end parallel do
+
+    ! !$omp parallel do default(none),private(ij,k), &
+    ! !$omp shared(ijdim,kmin,kmax,W2Cfact,GRD_cfact,GRD_dfact,GSGAM2,GSGAM2H)
+    ! do k  = kmin-1, kmax
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin-1), endAt(ijdim,kmax)}
        W2Cfact(ij,k,1) = GRD_cfact(k) * GSGAM2(ij,k) / GSGAM2H(ij,k+1)
        W2Cfact(ij,k,2) = GRD_dfact(k) * GSGAM2(ij,k) / GSGAM2H(ij,k  )
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
 
-    !$omp parallel do default(none),private(ij), &
-    !$omp shared(ijdim,kmax,W2Cfact)
-    do ij = 1, ijdim
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
+
+    ! !$omp parallel do default(none),private(ij), &
+    ! !$omp shared(ijdim,kmax,W2Cfact)
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij), domSize(ijdim)}
        W2Cfact(ij,kmax+1,1) = 0.0_RP
        W2Cfact(ij,kmax+1,2) = 0.0_RP
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+    
+    ! enddo
+    ! !$omp end parallel do
 
     call cnvvar_rhogkin_in( ijdim,            & ! [IN]
                             kdim,             & ! [IN]
@@ -286,21 +302,27 @@ contains
        GRD_gz_shift(k) = GRD_gz(k-1)
     enddo
 
-    !$omp parallel do default(none),private(ij,k,nq), &
-    !$omp shared(ijdim,kdim,nqmax,drhoq)
-    do nq = 1, nqmax
-    do k  = 1, kdim
-    do ij = 1, ijdim
-       drhoq(ij,k,nq) = 0.0_RP
-    enddo
-    enddo
-    enddo
-    !$omp end parallel do
+    ! !$omp parallel do default(none),private(ij,k,nq), &
+    ! !$omp shared(ijdim,kdim,nqmax,drhoq)
+    ! do nq = 1, nqmax
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
 
-    !$omp parallel do default(none),private(ij,k), &
-    !$omp shared(ijdim,kdim,drhoe,drhophi,drhokin_h,drhokin_v,drhogu,drhogv,drhogw)
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    @parallelRegion{domName(ij,k,nq), domSize(ijdim,kdim,nqmax)}
+       drhoq(ij,k,nq) = 0.0_RP
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
+
+    ! !$omp parallel do default(none),private(ij,k), &
+    ! !$omp shared(ijdim,kdim,drhoe,drhophi,drhokin_h,drhokin_v,drhogu,drhogv,drhogw)
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        drhoe    (ij,k) = 0.0_RP
        drhophi  (ij,k) = 0.0_RP
        drhokin_h(ij,k) = 0.0_RP
@@ -308,21 +330,27 @@ contains
        drhogu   (ij,k) = 0.0_RP
        drhogv   (ij,k) = 0.0_RP
        drhogw   (ij,k) = 0.0_RP
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
 
-    !$omp parallel do default(none),private(ij), &
-    !$omp shared(ijdim,precip,precip_rhoe,precip_lh_heat,precip_rhophi,precip_rhokin)
-    do ij = 1, ijdim
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
+
+    ! !$omp parallel do default(none),private(ij), &
+    ! !$omp shared(ijdim,precip,precip_rhoe,precip_lh_heat,precip_rhophi,precip_rhokin)
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        precip        (ij,1) = 0.0_RP
        precip        (ij,2) = 0.0_RP
        precip_rhoe   (ij)   = 0.0_RP
        precip_lh_heat(ij)   = 0.0_RP
        precip_rhophi (ij)   = 0.0_RP
        precip_rhokin (ij)   = 0.0_RP
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+
+    ! enddo
+    ! !$omp end parallel do
 
     do nq = 1, nqmax
 
@@ -339,14 +367,18 @@ contains
                          dt                       ) !--- [IN]
 
        !----- mass
-       !$omp parallel do default(none),private(ij,k), &
-       !$omp shared(nq,ijdim,kdim,rhoq,rhogq,rgs)
-       do k  = 1, kdim
-       do ij = 1, ijdim
+       ! !$omp parallel do default(none),private(ij,k), &
+       ! !$omp shared(nq,ijdim,kdim,rhoq,rhogq,rgs)
+       ! do k  = 1, kdim
+       ! do ij = 1, ijdim
+
+       @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
           rhoq(ij,k) = rhogq(ij,k,nq) * rgs(ij,k)
-       enddo
-       enddo
-       !$omp end parallel do
+       @end parallelRegion
+       
+       ! enddo
+       ! enddo
+       ! !$omp end parallel do
 
        call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, & !--- [IN]
                                 GRD_dgz  (:),            & !--- [IN]
@@ -357,14 +389,18 @@ contains
                                 kcell_min(:),            & !--- [IN]
                                 fprec_q  (:,:)           ) !--- [OUT]
 
-       !$omp parallel do default(none),private(ij,k), &
-       !$omp shared(nq,ijdim,kmin,kmax,drhoq,fprec_q,GRD_rdgz)
-       do k  = kmin, kmax
-       do ij = 1, ijdim
+       ! !$omp parallel do default(none),private(ij,k), &
+       ! !$omp shared(nq,ijdim,kmin,kmax,drhoq,fprec_q,GRD_rdgz)
+       ! do k  = kmin, kmax
+       ! do ij = 1, ijdim
+
+       @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
           drhoq(ij,k,nq) = -( fprec_q(ij,k+1)-fprec_q(ij,k) ) * GRD_rdgz(k)
-       enddo
-       enddo
-       !$omp end parallel do
+       @end parallelRegion
+
+       ! enddo
+       ! enddo
+       ! !$omp end parallel do
 
        ! Only for mass tracer
        if (       nq >= NQW_STR &
@@ -376,11 +412,13 @@ contains
           !--- momentum u
           !--- momentum v
 
-          !$omp parallel do default(none),private(ij,k), &
-          !$omp shared(nq,ijdim,kdim,rhoeq,rhophiq,rhokin_h,rhouq,rhovq,rhogq,q,rgs, &
-          !$omp        tem,z,rhogkin_h,vx,vy,vz,ix,iy,iz,jx,jy,jz,CVW,GRAV)
-          do k  = 1, kdim
-          do ij = 1, ijdim
+          ! !$omp parallel do default(none),private(ij,k), &
+          ! !$omp shared(nq,ijdim,kdim,rhoeq,rhophiq,rhokin_h,rhouq,rhovq,rhogq,q,rgs, &
+          ! !$omp        tem,z,rhogkin_h,vx,vy,vz,ix,iy,iz,jx,jy,jz,CVW,GRAV)
+          ! do k  = 1, kdim
+          ! do ij = 1, ijdim
+
+          @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
              rhoeq   (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * CVW(nq) * tem(ij,k)
              rhophiq (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * GRAV * z(ij,k)
              rhokin_h(ij,k) =     q(ij,k,nq) * rgs(ij,k) * rhogkin_h(ij,k)
@@ -390,9 +428,11 @@ contains
              rhovq   (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * ( vx(ij,k) * jx(ij) &
                                                            + vy(ij,k) * jy(ij) &
                                                            + vz(ij,k) * jz(ij) )
-          enddo
-          enddo
-          !$omp end parallel do
+          @end parallelRegion
+
+          ! enddo
+          ! enddo
+          ! !$omp end parallel do
 
           call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, &
                                    GRD_dgz  (:),            &
@@ -443,71 +483,82 @@ contains
           !$omp shared(ijdim,kmin,kmax,drhoe,drhophi,drhokin_h,drhogu,drhogv,GRD_rdgz, &
           !$omp        fprec_rhoe,fprec_rhophi,fprec_rhokin_h,fprec_rhou,fprec_rhov)
 
-          !$omp do
-          do k  = kmin, kmax
-          do ij = 1, ijdim
+          ! !$omp do
+          ! do k  = kmin, kmax
+          ! do ij = 1, ijdim
+
+          @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
              drhoe    (ij,k) = drhoe    (ij,k) -( fprec_rhoe    (ij,k+1)-fprec_rhoe    (ij,k) ) * GRD_rdgz(k)
-          enddo
-          enddo
-          !$omp end do nowait
+          ! enddo
+          ! enddo
+          ! !$omp end do nowait
 
-          !$omp do
-          do k  = kmin, kmax
-          do ij = 1, ijdim
+          ! !$omp do
+          ! do k  = kmin, kmax
+          ! do ij = 1, ijdim
              drhophi  (ij,k) = drhophi  (ij,k) -( fprec_rhophi  (ij,k+1)-fprec_rhophi  (ij,k) ) * GRD_rdgz(k)
-          enddo
-          enddo
-          !$omp end do nowait
+          ! enddo
+          ! enddo
+          ! !$omp end do nowait
 
-          !$omp do
-          do k  = kmin, kmax
-          do ij = 1, ijdim
+          ! !$omp do
+          ! do k  = kmin, kmax
+          ! do ij = 1, ijdim
              drhokin_h(ij,k) = drhokin_h(ij,k) -( fprec_rhokin_h(ij,k+1)-fprec_rhokin_h(ij,k) ) * GRD_rdgz(k)
-          enddo
-          enddo
-          !$omp end do nowait
+          ! enddo
+          ! enddo
+          ! !$omp end do nowait
 
-          !$omp do
-          do k  = kmin, kmax
-          do ij = 1, ijdim
+          ! !$omp do
+          ! do k  = kmin, kmax
+          ! do ij = 1, ijdim
              drhogu   (ij,k) = drhogu   (ij,k) -( fprec_rhou    (ij,k+1)-fprec_rhou    (ij,k) ) * GRD_rdgz(k)
-          enddo
-          enddo
-          !$omp end do nowait
+          ! enddo
+          ! enddo
+          ! !$omp end do nowait
 
-          !$omp do
-          do k  = kmin, kmax
-          do ij = 1, ijdim
+          ! !$omp do
+          ! do k  = kmin, kmax
+          ! do ij = 1, ijdim
              drhogv   (ij,k) = drhogv   (ij,k) -( fprec_rhov    (ij,k+1)-fprec_rhov    (ij,k) ) * GRD_rdgz(k)
-          enddo
-          enddo
-          !$omp end do
+          ! enddo
+          ! enddo
+          ! !$omp end do
+          @end parallelRegion
 
-          !$omp end parallel
+          ! !$omp end parallel
 
           !--- half level
 
-          !$omp parallel default(none),private(ij,k), &
-          !$omp shared(ijdim,kmin,kmax,Vtermh,Vterm,nq)
+          ! !$omp parallel default(none),private(ij,k), &
+          ! !$omp shared(ijdim,kmin,kmax,Vtermh,Vterm,nq)
 
-          !$omp do
-          do k  = kmin+1, kmax-1
-          do ij = 1,      ijdim
+          ! !$omp do
+          ! do k  = kmin+1, kmax-1
+          ! do ij = 1,      ijdim
+
+          @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax-1)}
              Vtermh(ij,k) = 0.5_RP * ( Vterm(ij,k,nq) + Vterm(ij,k-1,nq) )
-          enddo
-          enddo
-          !$omp end do nowait
+          @end parallelRegion
+          
+          ! enddo
+          ! enddo
+          ! !$omp end do nowait
 
-          !$omp do
-          do ij = 1, ijdim
+          ! !$omp do
+          ! do ij = 1, ijdim
+
+          @parallelRegion{domName(ij), domSize(ijdim)}
              Vtermh(ij,kmin-1) = 0.0_RP
              Vtermh(ij,kmin  ) = 0.0_RP
              Vtermh(ij,kmax  ) = 0.0_RP
              Vtermh(ij,kmax+1) = 0.0_RP
-          enddo
-          !$omp end do
+          @end parallelRegion
 
-          !$omp end parallel
+          ! enddo
+          ! !$omp end do
+
+          ! !$omp end parallel
 
           call vadv1d_prep( ijdim, kdim, kmin+1, kmax, &
                             GRD_dgzh    (:),           &
@@ -519,40 +570,52 @@ contains
                             kcellh_min  (:),           &
                             dt                         )
 
-          !$omp parallel default(none),private(ij,k), &
-          !$omp shared(nq,ijdim,kmin,kmax,qh,q,rgsh)
+          ! ! $omp parallel default(none),private(ij,k), &
+          ! ! $omp shared(nq,ijdim,kmin,kmax,qh,q,rgsh)
 
-          !$omp do
-          do k  = kmin+1, kmax
-          do ij = 1, ijdim
+          ! !$omp do
+          ! do k  = kmin+1, kmax
+          ! do ij = 1, ijdim
+
+          @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax)}
              qh(ij,k) = 0.5_RP * ( q(ij,k,nq) + q(ij,k-1,nq) ) * rgsh(ij,k)
-          enddo
-          enddo
-          !$omp end do nowait
+          @end parallelRegion
 
-          !$omp do
-          do ij = 1, ijdim
+          ! enddo
+          ! enddo
+          ! !$omp end do nowait
+
+          ! !$omp do
+          ! do ij = 1, ijdim
+
+          @parallelRegion{domName(ij), domSize(ijdim)}
              qh(ij,kmin-1) = 0.0_RP
              qh(ij,kmin  ) = 0.0_RP
              qh(ij,kmax+1) = 0.0_RP
-          enddo
-          !$omp end do
+          @end parallelRegion
 
-          !$omp end parallel
+          ! enddo
+          ! !$omp end do
+
+          ! !$omp end parallel
 
           !--- vertical kinetic energy
           !--- moment w
           !--- half level
 
-          !$omp parallel do default(none),private(ij,k), &
-          !$omp shared(nq,ijdim,kmin,kmax,rhokin_v,rhowq,qh,rhogkin_v,rhogw)
-          do k  = kmin+1, kmax
-          do ij = 1, ijdim
+          ! !$omp parallel do default(none),private(ij,k), &
+          ! !$omp shared(nq,ijdim,kmin,kmax,rhokin_v,rhowq,qh,rhogkin_v,rhogw)
+          ! do k  = kmin+1, kmax
+          ! do ij = 1, ijdim
+
+          @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax)}
              rhokin_v(ij,k) = qh(ij,k) * rhogkin_v(ij,k)
              rhowq   (ij,k) = qh(ij,k) * rhogw    (ij,k)
-          enddo
-          enddo
-          !$omp end parallel do
+          @end parallelRegion
+
+          ! enddo
+          ! enddo
+          ! !$omp end parallel do
 
           call vadv1d_getflux_new( ijdim, kdim, kmin+1, kmax, &
                                    GRD_dgzh  (:),             &
@@ -572,88 +635,121 @@ contains
                                    kcellh_min(:),             &
                                    fprec_rhow(:,:)            )
 
-          !$omp parallel do default(none),private(ij,k), &
-          !$omp shared(ijdim,kmin,kmax,drhokin_v,drhogw,fprec_rhokin_v,fprec_rhow,GRD_rdgzh)
-          do k  = kmin+1, kmax
-          do ij = 1, ijdim
+          ! !$omp parallel do default(none),private(ij,k), &
+          ! !$omp shared(ijdim,kmin,kmax,drhokin_v,drhogw,fprec_rhokin_v,fprec_rhow,GRD_rdgzh)
+          ! do k  = kmin+1, kmax
+          ! do ij = 1, ijdim
+
+          @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax)}
              drhokin_v(ij,k) = drhokin_v(ij,k) -( fprec_rhokin_v(ij,k)-fprec_rhokin_v(ij,k-1) ) * GRD_rdgzh(k)
              drhogw   (ij,k) = drhogw   (ij,k) -( fprec_rhow    (ij,k)-fprec_rhow    (ij,k-1) ) * GRD_rdgzh(k)
-          enddo
-          enddo
-          !$omp end parallel do
+          @end parallelRegion
+
+          ! enddo
+          ! enddo
+          ! !$omp end parallel do
 
           ! precipitation on the ground
           if ( nq == I_QC ) then
 
-             !$omp parallel do default(none),private(ij), &
-             !$omp shared(ijdim,kmin,precip,fprec_q,dt)
-             do ij = 1, ijdim
+             ! !$omp parallel do default(none),private(ij), &
+             ! !$omp shared(ijdim,kmin,precip,fprec_q,dt)
+             ! do ij = 1, ijdim
+
+             @parallelRegion{domName(ij), domSize(ijdim)}
                 precip(ij,1) = precip(ij,1) - fprec_q(ij,kmin) / dt
-             enddo
-             !$omp end parallel do
+             @end parallelRegion
+
+             ! enddo
+             ! !$omp end parallel do
 
           elseif( nq == I_QR ) then
 
-             !$omp parallel do default(none),private(ij), &
-             !$omp shared(ijdim,kmin,precip,fprec_q,dt)
-             do ij = 1, ijdim
+             ! !$omp parallel do default(none),private(ij), &
+             ! !$omp shared(ijdim,kmin,precip,fprec_q,dt)
+             ! do ij = 1, ijdim
+
+             @parallelRegion{domName(ij), domSize(ijdim)}
                 precip(ij,1) = precip(ij,1) - fprec_q(ij,kmin) / dt
-             enddo
-             !$omp end parallel do
+             @end parallelRegion
 
-             !$omp parallel default(none),private(ij,k), &
-             !$omp shared(ijdim,kmin,kmax,frain,fprec_q,dt)
+             ! enddo
+             ! !$omp end parallel do
 
-             !$omp do
-             do k  = kmin, kmax
-             do ij = 1, ijdim
+             ! ! $omp parallel default(none),private(ij,k), &
+             ! ! $omp shared(ijdim,kmin,kmax,frain,fprec_q,dt)
+
+             ! !$omp do
+             ! do k  = kmin, kmax
+             ! do ij = 1, ijdim
+
+             @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
                 frain(ij,k) = -fprec_q(ij,k) / dt
-             enddo
-             enddo
-             !$omp end do nowait
+             @end parallelRegion 
 
-             !$omp do
-             do ij = 1, ijdim
+
+             ! enddo
+             ! enddo
+             ! !$omp end do nowait
+
+             ! !$omp do
+             ! do ij = 1, ijdim
+
+             @parallelRegion{domName(ij), domSize(ijdim)}
                 frain(ij,kmin-1) = 0.0_RP
                 frain(ij,kmax+1) = 0.0_RP
-             enddo
-             !$omp end do
+             @end parallelRegion
 
-             !$omp end parallel
+             ! enddo
+             ! !$omp end do
+
+             ! !$omp end parallel
 
           elseif( nq == I_QI .OR. nq == I_QS .OR. nq == I_QG ) then
 
-             !$omp parallel do default(none),private(ij), &
-             !$omp shared(ijdim,kmin,precip,fprec_q,dt,precip_lh_heat,LHF)
-             do ij = 1, ijdim
+             ! !$omp parallel do default(none),private(ij), &
+             ! !$omp shared(ijdim,kmin,precip,fprec_q,dt,precip_lh_heat,LHF)
+             ! do ij = 1, ijdim
+
+             @parallelRegion{domName(ij), domSize(ijdim)}
                 precip(ij,2) = precip(ij,2) - fprec_q(ij,kmin) / dt
                 precip_lh_heat(ij) = precip_lh_heat(ij) + fprec_q(ij,kmin) * LHF / dt
-             enddo
-             !$omp end parallel do
+             @end parallelRegion
+
+             ! enddo
+             ! !$omp end parallel do
 
           endif
 
           if ( present(precip_trc) ) then ! [Add] 2012/02/01 T.Seiki
 
-             !$omp parallel do default(none),private(ij), &
-             !$omp shared(nq,ijdim,kmin,precip_trc,fprec_q,dt)
-             do ij = 1, ijdim
+             ! !$omp parallel do default(none),private(ij), &
+             ! !$omp shared(nq,ijdim,kmin,precip_trc,fprec_q,dt)
+             ! do ij = 1, ijdim
+
+             @parallelRegion{domName(ij), domSize(ijdim)}
                 precip_trc(ij,nq) = precip_trc(ij,nq) - fprec_q(ij,kmin) / dt
-             enddo
-             !$omp end parallel do
+             @end parallelRegion
+
+             ! enddo
+             ! !$omp end parallel do
 
           endif
 
-          !$omp parallel do default(none),private(ij), &
-          !$omp shared(ijdim,kmin,precip_rhoe,precip_rhophi,precip_rhokin,     &
-          !$omp        fprec_rhoe,fprec_rhophi,fprec_rhokin_h,fprec_rhokin_v,dt)
-          do ij = 1, ijdim
+          ! !$omp parallel do default(none),private(ij), &
+          ! !$omp shared(ijdim,kmin,precip_rhoe,precip_rhophi,precip_rhokin,     &
+          ! !$omp        fprec_rhoe,fprec_rhophi,fprec_rhokin_h,fprec_rhokin_v,dt)
+          ! do ij = 1, ijdim
+
+          @parallelRegion{domName(ij), domSize(ijdim)}
              precip_rhoe  (ij) = precip_rhoe  (ij) - fprec_rhoe    (ij,kmin) / dt
              precip_rhophi(ij) = precip_rhophi(ij) - fprec_rhophi  (ij,kmin) / dt
              precip_rhokin(ij) = precip_rhokin(ij) - fprec_rhokin_h(ij,kmin) / dt &
                                                    - fprec_rhokin_v(ij,kmin) / dt
-          enddo
-          !$omp end parallel do
+          @end parallelRegion
+
+          ! enddo
+          ! !$omp end parallel do
 
        endif
 
@@ -662,11 +758,13 @@ contains
     ! Change in internal energy comes from precipitation and dissipation of kinetic energy due to drag force.
     ! See Ooyama(2001) (3.13)
 
-    !$omp parallel do default(none),private(ij,k), &
-    !$omp shared(ijdim,kdim,rhoge,rhogkin_h,rhogkin_v,rhogvx,rhogvy,rhogvz,rhogw, &
-    !$omp        drhoe,drhophi,drhokin_h,drhokin_v,drhogu,drhogv,drhogw,ix,iy,iz,jx,jy,jz)
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! !$omp parallel do default(none),private(ij,k), &
+    ! !$omp shared(ijdim,kdim,rhoge,rhogkin_h,rhogkin_v,rhogvx,rhogvy,rhogvz,rhogw, &
+    ! !$omp        drhoe,drhophi,drhokin_h,drhokin_v,drhogu,drhogv,drhogw,ix,iy,iz,jx,jy,jz)
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        rhoge    (ij,k) = rhoge    (ij,k) + drhoe    (ij,k) + drhophi(ij,k)
        rhogkin_h(ij,k) = rhogkin_h(ij,k) + drhokin_h(ij,k)
        rhogkin_v(ij,k) = rhogkin_v(ij,k) + drhokin_v(ij,k)
@@ -674,54 +772,72 @@ contains
        rhogvy   (ij,k) = rhogvy   (ij,k) + drhogu   (ij,k) * iy(ij) + drhogv(ij,k) * jy(ij)
        rhogvz   (ij,k) = rhogvz   (ij,k) + drhogu   (ij,k) * iz(ij) + drhogv(ij,k) * jz(ij)
        rhogw    (ij,k) = rhogw    (ij,k) + drhogw   (ij,k)
-    enddo
-    enddo
-    !$omp end parallel do
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
+    ! !$omp end parallel do
 
     do nq = 1, nqmax
        if ( nq >= NQW_STR .AND. nq <= NQW_END ) then
-          !$omp parallel do default(none),private(ij,k), &
-          !$omp shared(nq,ijdim,kdim,rhogq,rhog,rhoge,drhoq,z,GRAV)
-          do k  = 1, kdim
-          do ij = 1, ijdim
+          ! !$omp parallel do default(none),private(ij,k), &
+          ! !$omp shared(nq,ijdim,kdim,rhogq,rhog,rhoge,drhoq,z,GRAV)
+          ! do k  = 1, kdim
+          ! do ij = 1, ijdim
+
+          @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
              rhogq(ij,k,nq) = rhogq(ij,k,nq) + drhoq(ij,k,nq)
              rhog (ij,k)    = rhog (ij,k)    + drhoq(ij,k,nq)
              rhoge(ij,k)    = rhoge(ij,k)    - drhoq(ij,k,nq) * GRAV * z(ij,k)
-          enddo
-          enddo
-          !$omp end parallel do
+          @end parallelRegion
+
+          ! enddo
+          ! enddo
+          ! !$omp end parallel do
        else
-          !$omp parallel do default(none),private(ij,k), &
-          !$omp shared(nq,ijdim,kdim,rhogq,drhoq)
-          do k  = 1, kdim
-          do ij = 1, ijdim
+          ! !$omp parallel do default(none),private(ij,k), &
+          ! !$omp shared(nq,ijdim,kdim,rhogq,drhoq)
+          ! do k  = 1, kdim
+          ! do ij = 1, ijdim
+
+          @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
              rhogq(ij,k,nq) = rhogq(ij,k,nq) + drhoq(ij,k,nq)
-          enddo
-          enddo
-          !$omp end parallel do
+          @end parallelRegion
+
+          ! enddo
+          ! enddo
+          ! !$omp end parallel do
        endif
     enddo
 
     if ( PRCIP_TRN_ECORRECT == 'KIN2EIN' ) then
 
-       !$omp parallel default(none),private(ij,k), &
-       !$omp shared(ijdim,kmin,kmax,tmp2,rhogkin_h,rhogkin_v,W2Cfact)
+       ! !$omp parallel default(none),private(ij,k), &
+       ! !$omp shared(ijdim,kmin,kmax,tmp2,rhogkin_h,rhogkin_v,W2Cfact)
 
-       !$omp do
-       do k  = kmin, kmax
-       do ij = 1, ijdim
+       ! !$omp do
+       ! do k  = kmin, kmax
+       ! do ij = 1, ijdim
+
+       @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
           tmp2(ij,k) = rhogkin_h(ij,k) + ( W2Cfact(ij,k,1) * rhogkin_v(ij,k+1) &
                                          + W2Cfact(ij,k,2) * rhogkin_v(ij,k  ) )
-       enddo
-       enddo
-       !$omp end do
+       @end parallelRegion
 
-       !$omp do
-       do ij = 1, ijdim
+       ! enddo
+       ! enddo
+       ! !$omp end do
+
+       ! !$omp do
+       ! do ij = 1, ijdim
+
+       @parallelRegion{domName(ij), domSize(ijdim)}
           tmp2(ij,kmin-1) = 0.0_RP
           tmp2(ij,kmax+1) = 0.0_RP
-       enddo
-       !$omp end do
+       @end parallelRegion
+
+       ! enddo
+       ! !$omp end do
 
        !$omp end parallel
 
