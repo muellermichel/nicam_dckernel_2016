@@ -35,7 +35,7 @@ NICAM_SYS?=Linux64-gnu-ompi-torque
 include ${NICAM_HOME}/sysdep/Makedef.${NICAM_SYS}
 
 FC=${FC_PGI}
-FFLAGS=${FFLAGS_PGI}
+FFLAGS=${FFLAGS_PGI} ${FFLAGS_GPU_PGI}
 
 LDFLAGS = $(FFLAGS) -l${HYBRID_LIBRARY_FILENAME_POSTFIX}
 LD      = $(FC)

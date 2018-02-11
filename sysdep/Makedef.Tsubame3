@@ -16,7 +16,8 @@ FFLAGS_DEBUG_INTEL = -fpp -m64 -O0                        \
                -check all -warn all -g -traceback \
                -mcmodel=medium -heap-arrays
 
-FFLAGS_BASIC_PGI = -Mpreprocess -byteswapio -acc -Mcuda=9.0,cc60,maxregcount:80 -ta=tesla:cc60 -DUSE_MPI
+FFLAGS_BASIC_PGI = -Mpreprocess -byteswapio -DUSE_MPI
+FFLAGS_GPU_PGI = -acc -Mcuda=9.0,cc60,maxregcount:80 -ta=tesla:cc60
 FFLAGS_OPT_PGI = -O3 -Munroll
 FFLAGS_DEBUG_PGI = -g -O0 -Mchkptr -Mbounds -Kieee
 
