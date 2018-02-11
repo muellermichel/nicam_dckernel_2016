@@ -119,20 +119,30 @@ contains
 
     ! calculation of kcell
     ! top boundary: rigid [kcell(:,kmax+1) = kmax+1]
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)
        kcell(ij,k)  = k
        kcell_min(k) = k
        kcell_max(k) = k
-    enddo
-    enddo
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
 
     ! setup limiter of max and min of kcell
     do k = kmin, kmax
-       zzmax = maxval( zdis(:,k) )
-       zzmin = minval( zdis(:,k) )
+       @parallelRegion{domName(ij), domSize(ijdim), reduction(max:zzmax)}
+       zzmax = max(zzmax, zdis(ij,k) )
+       @end parallelRegion
+
+       @parallelRegion{domName(ij), domSize(ijdim), reduction(min:zzmin)}
+       zzmin = min(zzmin, zdis(ij,k))
+       @end parallelRegion
 
        if ( zzmax > 0.0_RP ) then
+          @parallelRegion{domName(ij), domSize(1)}
           do k2 = k, kmin, -1
              if (       zh(k2)   <= zh(k)-zzmax &
                   .AND. zh(k2+1) >  zh(k)-zzmax ) then
@@ -142,9 +152,11 @@ contains
 
              endif
           enddo
+          @end parallelRegion
        endif
 
        if ( zzmin < 0.0_RP ) then
+          @parallelRegion{domName(ij), domSize(1)}
           do k2 = k, kmax
              if (       zh(k2)   <= zh(k)-zzmin &
                   .AND. zh(k2+1) >  zh(k)-zzmin ) then
@@ -154,12 +166,14 @@ contains
 
              endif
           enddo
+          @end parallelRegion
        endif
     enddo
 
     ! determine the kcell at each point.
-    do k  = kmin, kmax
-    do ij = 1, ijdim
+    ! do k  = kmin, kmax
+    ! do ij = 1, ijdim
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim, startAt(1,kmin), endAt(ijdim,kmax)}
        if (       kcell_min(k) == k &
             .AND. kcell_max(k) == k ) then
 
@@ -177,11 +191,13 @@ contains
           enddo
 
        endif
-    enddo
-    enddo
+    @end parallelRegion
+    ! enddo
+    ! enddo
 
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)
        if ( kcell(ij,k) == 0 ) then
           kcell(ij,k) = kmin
        endif
@@ -189,8 +205,9 @@ contains
        if ( kcell(ij,k) == kmax+1 ) then
           kcell(ij,k) = kmax
        endif
-    enddo
-    enddo
+    @end parallelRegion
+    ! enddo
+    ! enddo
 
     return
   end subroutine vadv1d_prep
