@@ -46,6 +46,7 @@ module mod_vadv1d
   !-----------------------------------------------------------------------------
 contains
   !-----------------------------------------------------------------------------
+  @scheme{name(REDUCTION_SUPPORT)}
   subroutine vadv1d_prep( &
        ijdim,     &
        kdim,      &
@@ -157,8 +158,6 @@ contains
        zzmin = min(zzmin, zdis(ij,k))
        @end parallelRegion
 
-       write(0, "(A,F13.5,F13.5)") "zzmax/zzmin", zzmax, zzmin
-
        if ( zzmax > 0.0_RP ) then
           @parallelRegion{domName(dummy), domSize(1)}
           do k2 = k, kmin, -1
@@ -229,6 +228,7 @@ contains
 
     return
   end subroutine vadv1d_prep
+  @end scheme
 
   !-----------------------------------------------------------------------------
   subroutine vadv1d_getflux_new( &
@@ -266,37 +266,39 @@ contains
     !---------------------------------------------------------------------------
 
     !------ integration in the integer cells
-    !$omp parallel &
-    !$omp default(none) &
-    !$omp shared(frhof,kcell_min,kcell_max,zdis,zdis0,dz,rhof,kcell) &
-    !$omp shared(kdim,kmin,kmax,ijdim,CONST_EPS) &
-    !$omp private(k,ij,k2,fact)
+    !! $omp parallel &
+    !! $omp default(none) &
+    !! $omp shared(frhof,kcell_min,kcell_max,zdis,zdis0,dz,rhof,kcell) &
+    !! $omp shared(kdim,kmin,kmax,ijdim,CONST_EPS) &
+    !! $omp private(k,ij,k2,fact)
 
-    do k  = 1, kdim
-       !$omp do
-       do ij = 1, ijdim
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+    ! do k  = 1, kdim
+    !    !$omp do
+    !    do ij = 1, ijdim
           frhof(ij,k) = 0.0_RP
-       enddo
-       !$omp end do nowait
-    enddo
+    !    enddo
+    !    !$omp end do nowait
+    ! enddo
+    @end parallelRegion
 
-
+    @parallelRegion{domName(ij), domSize(ijdim)}
     do k = kmin, kmax
        if (       kcell_min(k) == k &
             .AND. kcell_max(k) == k ) then
 
-          !$omp do
-          do ij = 1, ijdim
+          ! !$omp do
+          ! do ij = 1, ijdim
              zdis(ij,k) = zdis0(ij,k)
-          enddo
-          !$omp end do nowait
+          ! enddo
+          ! !$omp end do nowait
        else
           do k2 = kcell_min(k), kcell_max(k)
 
              ! sum up over k2 = kcell(ij,k)+1, k-1 : if w > 0
              ! or          k2 = k, kcell(ij,k)-1   : if w < 0
-             !$omp do
-             do ij = 1, ijdim
+             ! !$omp do
+             ! do ij = 1, ijdim
                 fact = dz(k2) * 0.25_RP &
                      * ( ( sign(1,k2-(kcell(ij,k)+1)) + 1.0_RP ) * ( sign(1,(k          -1)-k2) + 1.0_RP ) &
                        - ( sign(1,k2-k              ) + 1.0_RP ) * ( sign(1,(kcell(ij,k)-1)-k2) + 1.0_RP ) )
@@ -304,28 +306,29 @@ contains
 
                 frhof(ij,k) = frhof(ij,k) + rhof(ij,k2) * fact
                 zdis (ij,k) = zdis0(ij,k) - fact
-             enddo
-             !$omp end do nowait
+             ! enddo
+             ! !$omp end do nowait
           enddo
        endif
 
        !ocl XFILL
-       !$omp do
-       do ij = 1, ijdim
+       ! !$omp do
+       ! do ij = 1, ijdim
           frhof(ij,k) = frhof(ij,k) + rhof(ij,kcell(ij,k)) * zdis(ij,k)
-       enddo
-       !$omp end do nowait
+       ! enddo
+       ! !$omp end do nowait
     enddo
 
     do k  = 1, kdim
-       !$omp do
-       do ij = 1, ijdim
+       ! !$omp do
+       ! do ij = 1, ijdim
           frhof(ij,k) = frhof(ij,k) * ( 0.5_RP + sign(0.5_RP, abs(frhof(ij,k)) - CONST_EPS ) ) ! small negative filter
-       enddo
-       !$omp end do nowait
+       ! enddo
+       ! !$omp end do nowait
     enddo
+    @end parallelRegion
 
-    !$omp end parallel
+    ! !$omp end parallel
 
     return
   end subroutine vadv1d_getflux_new
