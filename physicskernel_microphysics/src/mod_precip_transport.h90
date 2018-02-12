@@ -349,7 +349,7 @@ contains
     ! !$omp shared(ijdim,precip,precip_rhoe,precip_lh_heat,precip_rhophi,precip_rhokin)
     ! do ij = 1, ijdim
 
-    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+    @parallelRegion{domName(ij), domSize(ijdim)}
        precip        (ij,1) = 0.0_RP
        precip        (ij,2) = 0.0_RP
        precip_rhoe   (ij)   = 0.0_RP
