@@ -1091,6 +1091,10 @@ contains
     real(RP) :: CVdry, Rdry, Rvap
 
     integer  :: ij, k, nq
+
+    @domainDependant{attribute(present, autoDom)}
+    ein, rho, q, tem, pre, cv, qd
+    @end domainDependant
     !---------------------------------------------------------------------------
 
     CVdry = CONST_CVdry

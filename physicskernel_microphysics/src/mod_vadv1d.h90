@@ -79,6 +79,10 @@ contains
     real(RP) :: zzmax, zzmin
 
     integer  :: ij, k, k2, dummy
+
+    @domainDependant{attribute(present, autoDom)}
+    dz, zh, wp, zdis, kcell, kcell_max, kcell_min, wh
+    @end domainDependant
     !---------------------------------------------------------------------------
 
     ! vetical velocity at the half level
@@ -245,6 +249,7 @@ contains
        frhof      )
 !ESC!    use mod_const, only: &
 !ESC!       CONST_EPS
+    use mod_debug, only : CONST_EPS
     implicit none
 
     integer,  intent(in)  :: ijdim
@@ -263,6 +268,10 @@ contains
     real(RP) :: fact
 
     integer  :: ij, k, k2
+
+    @domainDependant{attribute(present, autoDom)}
+    dz, rhof, zdis0, kcell, kcell_max, kcell_min, frhof, zdis
+    @end domainDependant
     !---------------------------------------------------------------------------
 
     !------ integration in the integer cells

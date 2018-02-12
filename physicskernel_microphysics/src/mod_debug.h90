@@ -891,6 +891,7 @@ contains
 
     return
   end subroutine GRD_input_vgrid
+  @end scheme
 
   !-----------------------------------------------------------------------------
   subroutine cnvvar_rhogkin_in( &
@@ -924,6 +925,10 @@ contains
     integer  :: gall, kmin, kmax
 
     integer  :: g, k
+
+    @domainDependant{attribute(present, autoDom)}
+    rhog, rhogvx, rhogvy, rhogvz, rhogw, C2Wfact, W2Cfact, rhogkin, rhogkin_h, rhogkin_v
+    @end domainDependant
     !---------------------------------------------------------------------------
 
     call PROF_rapstart('CNV_rhogkin',2)
@@ -1019,5 +1024,4 @@ contains
 
     return
   end subroutine cnvvar_rhogkin_in
-  @end scheme
 end module mod_debug

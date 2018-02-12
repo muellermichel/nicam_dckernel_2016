@@ -233,6 +233,20 @@ contains
     real(RP) :: GRAV
 
     integer  :: ij, k, nq
+
+    @domainDependant{attribute(host, autoDom)}
+    precipitating_flag
+    @end domainDependant
+
+    @domainDependant{attribute(present, autoDom)}
+    rhog, rhogvx, rhogvy, rhogvz, rhogw, rhoge, rhogq, rho, tem, pre, vx, vy, vz, w, q, qd, z, Vterm,
+    precip, precip_rhoe, precip_lh_heat, precip_rhophi, precip_rhokin, frain, gsgam2, gsgam2h, rgs, rgsh, ix, iy, iz, jx, jy, jz,
+    rhogkin, rhogkin_h, rhogkin_v, rhoq, rhoeq, rhophiq, rhokin_h, rhokin_v, rhouq, rhovq, rhowq,
+    fprec_q, fprec_rhoe, fprec_rhophi, fprec_rhokin_h, fprec_rhokin_v, fprec_rhou, fprec_rhov, fprec_rhow,
+    drhoq, drhoe, drhophi, drhokin_h, drhokin_v, drhogu, drhogv, drhogw, kin_h0, kin_h,
+    vx_t, vy_t, vz_t, kin_v0, kin_v, w_t, zdis0, kcell, kcell_max, kcell_min, zdis0h,
+    kcellh, kcellh_max, kcellh_min, Vtermq, Vtermh, qh, rhogh, ein, tmp, tmp_h, tmp_v, tmp2, C2Wfact, W2Cfact, GRD_gz_shift
+    @end domainDependant
     !---------------------------------------------------------------------------
 
     call PROF_rapstart('____Precipitation')
