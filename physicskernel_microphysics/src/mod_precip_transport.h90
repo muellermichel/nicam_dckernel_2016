@@ -117,7 +117,7 @@ contains
 !ESC!       cnvvar_rhogkin_in
     use mod_thrmdyn, only: &
        THRMDYN_qd_ijk, &
-       thrmdyn_tempre
+       THRMDYN_tempre_ijk
     use mod_vadv1d, only: &
        vadv1d_prep,       &
        vadv1d_getflux_new
@@ -281,7 +281,7 @@ contains
        W2Cfact(ij,kmax+1,1) = 0.0_RP
        W2Cfact(ij,kmax+1,2) = 0.0_RP
     @end parallelRegion
-    
+
     ! enddo
     ! !$omp end parallel do
 
@@ -375,7 +375,7 @@ contains
        @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
           rhoq(ij,k) = rhogq(ij,k,nq) * rgs(ij,k)
        @end parallelRegion
-       
+
        ! enddo
        ! enddo
        ! !$omp end parallel do
@@ -540,7 +540,7 @@ contains
           @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax-1)}
              Vtermh(ij,k) = 0.5_RP * ( Vterm(ij,k,nq) + Vterm(ij,k-1,nq) )
           @end parallelRegion
-          
+
           ! enddo
           ! enddo
           ! !$omp end do nowait
@@ -685,7 +685,7 @@ contains
 
              @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
                 frain(ij,k) = -fprec_q(ij,k) / dt
-             @end parallelRegion 
+             @end parallelRegion
 
 
              ! enddo
@@ -1017,7 +1017,7 @@ contains
                      q (:,:,:), & ! [IN]
                      qd(:,:)    ) ! [OUT]
 
-    call thrmdyn_tempre( ijdim,      & ! [IN]
+    call THRMDYN_tempre_ijk( ijdim,      & ! [IN]
                          kdim,       & ! [IN]
                          ein(:,:),   & ! [IN]
                          rho(:,:),   & ! [IN]

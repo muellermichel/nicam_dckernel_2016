@@ -46,6 +46,7 @@ module mod_thrmdyn
 
   public :: THRMDYN_cv_ijk
   public :: THRMDYN_qd_ijk
+  public :: THRMDYN_tempre_ijk
 
   interface THRMDYN_qd
      module procedure THRMDYN_qd_ijk
@@ -1095,40 +1096,52 @@ contains
     Rdry  = CONST_Rdry
     Rvap  = CONST_Rvap
 
-    !$omp parallel default(none),private(ij,k,nq), &
-    !$omp shared(ijdim,kdim,NQW_STR,NQW_END,tem,pre,ein,rho,q,cv,qd,CVW,CVdry,Rdry,Rvap,I_QV)
+    ! !$omp parallel default(none),private(ij,k,nq), &
+    ! !$omp shared(ijdim,kdim,NQW_STR,NQW_END,tem,pre,ein,rho,q,cv,qd,CVW,CVdry,Rdry,Rvap,I_QV)
 
-    !$omp do
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! !$omp do
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        cv(ij,k) = 0.0_RP
        qd(ij,k) = 1.0_RP
-    enddo
-    enddo
-    !$omp end do
+    @end parallelRegion
+
+    ! enddo
+    ! enddo
+    ! !$omp end do
 
     do nq = NQW_STR, NQW_END
-       !$omp do
-       do k  = 1, kdim
-       do ij = 1, ijdim
+       ! !$omp do
+       ! do k  = 1, kdim
+       ! do ij = 1, ijdim
+
+       @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
           cv(ij,k) = cv(ij,k) + q(ij,k,nq) * CVW(nq)
           qd(ij,k) = qd(ij,k) - q(ij,k,nq)
-       enddo
-       enddo
-       !$omp end do
+       @end parallelRegion
+
+       ! enddo
+       ! enddo
+       ! !$omp end do
     enddo
 
-    !$omp do
-    do k  = 1, kdim
-    do ij = 1, ijdim
+    ! !$omp do
+    ! do k  = 1, kdim
+    ! do ij = 1, ijdim
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        cv (ij,k) = cv (ij,k) + qd (ij,k) * CVdry
        tem(ij,k) = ein(ij,k) / cv (ij,k)
        pre(ij,k) = rho(ij,k) * tem(ij,k) * ( qd(ij,k)*Rdry + q(ij,k,I_QV)*Rvap )
-    enddo
-    enddo
-    !$omp end do
+    @end parallelRegion
 
-    !$omp end parallel
+    ! enddo
+    ! enddo
+    ! !$omp end do
+
+    ! !$omp end parallel
 
 !ACC!    !$acc kernels pcopy(tem,pre,cv,qd) pcopyin(ein,rho,q,CVW) async(0)
 !ACC!    do k  = 1, kdim
