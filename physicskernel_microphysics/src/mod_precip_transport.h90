@@ -216,6 +216,7 @@ contains
     integer  :: kcellh_max    (kdim)
     integer  :: kcellh_min    (kdim)
 
+    real(RP) :: Vtermq        (ijdim,kdim)
     real(RP) :: Vtermh        (ijdim,kdim)
     real(RP) :: qh            (ijdim,kdim)
     real(RP) :: rhogh         (ijdim,kdim)
@@ -365,10 +366,14 @@ contains
 
        if( .NOT. precipitating_flag(nq) ) cycle
 
+       @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+       Vtermq(ij,k) = Vterm(ij,k,nq)
+       @end parallelRegion
+
        call vadv1d_prep( ijdim, kdim, kmin, kmax, & !--- [IN]
                          GRD_dgz  (:),            & !--- [IN]
                          GRD_gzh  (:),            & !--- [IN]
-                         Vterm    (:,:,nq),       & !--- [IN]
+                         Vtermq    (:,:),       & !--- [IN]
                          zdis0    (:,:),          & !--- [OUT] [bugfix] H.Yashiro 20120606
                          kcell    (:,:),          & !--- [OUT]
                          kcell_max(:),            & !--- [OUT]
