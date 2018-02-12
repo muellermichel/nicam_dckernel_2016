@@ -941,7 +941,7 @@ contains
     ! do k = kmin, kmax
     ! do g = 1, gall
 
-    @parallelRegion{domName(g,k), domSize(ijdim,kdim)}
+    @parallelRegion{domName(g,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
        rhogkin_h(g,k) = 0.5_RP * ( rhogvx(g,k) * rhogvx(g,k) &
                                  + rhogvy(g,k) * rhogvy(g,k) &
                                  + rhogvz(g,k) * rhogvz(g,k) ) / rhog(g,k)

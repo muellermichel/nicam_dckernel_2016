@@ -121,6 +121,11 @@ contains
     use mod_vadv1d, only: &
        vadv1d_prep,       &
        vadv1d_getflux_new
+    use mod_debug, only: kdim, kmin, kmax, CONST_GRAV, &
+       GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh, &
+       GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact, &
+       nqmax, NQW_STR, NQW_END, I_QC, I_QR, I_QI, I_QS, I_QG, CVW, LHF, &
+       PRCIP_TRN_ECORRECT
     implicit none
 
     integer,  intent(in)    :: ijdim
@@ -298,9 +303,13 @@ contains
                             rhogkin_h(:,:),   & ! [OUT]
                             rhogkin_v(:,:)    ) ! [OUT]
 
-    do k  = kmin, kmax+1
+    ! do k  = kmin, kmax+1
+
+    @parallelRegion{domName(k), domSize(kdim), startAt(kmin), endAt(kmax+1)}
        GRD_gz_shift(k) = GRD_gz(k-1)
-    enddo
+    @end parallelRegion
+
+    ! enddo
 
     ! !$omp parallel do default(none),private(ij,k,nq), &
     ! !$omp shared(ijdim,kdim,nqmax,drhoq)
@@ -479,9 +488,9 @@ contains
                                    kcell_min(:),            &
                                    fprec_rhov(:,:)          )
 
-          !$omp parallel default(none),private(ij,k), &
-          !$omp shared(ijdim,kmin,kmax,drhoe,drhophi,drhokin_h,drhogu,drhogv,GRD_rdgz, &
-          !$omp        fprec_rhoe,fprec_rhophi,fprec_rhokin_h,fprec_rhou,fprec_rhov)
+          ! ! $omp parallel default(none),private(ij,k), &
+          ! ! $omp shared(ijdim,kmin,kmax,drhoe,drhophi,drhokin_h,drhogu,drhogv,GRD_rdgz, &
+          ! ! $omp        fprec_rhoe,fprec_rhophi,fprec_rhokin_h,fprec_rhou,fprec_rhov)
 
           ! !$omp do
           ! do k  = kmin, kmax
@@ -721,20 +730,20 @@ contains
 
           endif
 
-          if ( present(precip_trc) ) then ! [Add] 2012/02/01 T.Seiki
+          ! if ( present(precip_trc) ) then ! [Add] 2012/02/01 T.Seiki
 
-             ! !$omp parallel do default(none),private(ij), &
-             ! !$omp shared(nq,ijdim,kmin,precip_trc,fprec_q,dt)
-             ! do ij = 1, ijdim
+          !    ! !$omp parallel do default(none),private(ij), &
+          !    ! !$omp shared(nq,ijdim,kmin,precip_trc,fprec_q,dt)
+          !    ! do ij = 1, ijdim
 
-             @parallelRegion{domName(ij), domSize(ijdim)}
-                precip_trc(ij,nq) = precip_trc(ij,nq) - fprec_q(ij,kmin) / dt
-             @end parallelRegion
+          !    @parallelRegion{domName(ij), domSize(ijdim)}
+          !       precip_trc(ij,nq) = precip_trc(ij,nq) - fprec_q(ij,kmin) / dt
+          !    @end parallelRegion
 
-             ! enddo
-             ! !$omp end parallel do
+          !    ! enddo
+          !    ! !$omp end parallel do
 
-          endif
+          ! endif
 
           ! !$omp parallel do default(none),private(ij), &
           ! !$omp shared(ijdim,kmin,precip_rhoe,precip_rhophi,precip_rhokin,     &
@@ -839,7 +848,7 @@ contains
        ! enddo
        ! !$omp end do
 
-       !$omp end parallel
+      ! !$omp end parallel
 
        call cnvvar_rhogkin_in( ijdim,          & ! [IN]
                                kdim,           & ! [IN]

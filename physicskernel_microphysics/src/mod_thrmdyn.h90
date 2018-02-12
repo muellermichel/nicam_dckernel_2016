@@ -1075,6 +1075,7 @@ contains
 !ESC!       NQW_END,           &
 !ESC!       I_QV,              &
 !ESC!       CVW
+    use mod_debug, only: CONST_Rdry, CONST_Rvap, CONST_CVdry, nqmax, NQW_STR, NQW_END, I_QV, CVW
     implicit none
 
     integer,  intent(in)  :: ijdim
