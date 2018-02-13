@@ -4,7 +4,7 @@ module mod_main
     use time_profiling
     use helper_functions
     use mod_debug, only: SET_iteration, SET_l, TIME_DTL, TIME_CTIME, nqmax, kdim, ADM_gall_in, &
-      GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh, GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact, CVW, LHF
+      GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh, GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact, CVW
     use mod_precision
     use mod_mp_driver, only: mp_driver
     implicit none
@@ -65,7 +65,7 @@ module mod_main
 
     @domainDependant{attribute(autoDom, transferHere)}
     rhog, rhogvx, rhogvy, rhogvz, rhogw, rhoge, rhogq_Lswp, vx, vy, vz, w, unccn, rho, tem, pre, q_Lswp, qd, precip_mp, precip1_mp, precip2_mp, rhoein_precip_mp, lh_precip_mp, rhophi_precip_mp, rhokin_precip_mp, rceff, rceff_solid, rceff_cld, rctop, rwtop, tctop, frhoge_af, frhogqv_af, frhoge_rad, qke, gsgam2, gsgam2h, gam2, gam2h, ix, iy, iz, jx, jy, jz, z, zh, GDCLW, GDCFRC, GPREC, CBMFX
-    GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh, GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact, CVW, LHF
+    GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh, GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact, CVW
     @end domainDependant
 
     l = SET_l

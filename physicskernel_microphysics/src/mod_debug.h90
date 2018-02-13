@@ -111,6 +111,14 @@ module mod_debug
   logical, private, parameter :: NSTR_ZERO_START = .true.
   integer, private            :: NSTR_MAX_DIGIT  = 5
 
+  @domainDependant{domName(k), domSize(kdim), attribute(host)}
+  GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh, GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact
+  @end domainDependant
+
+  @domainDependant{domName(idx2), domSize(6), attribute(host)}
+  CVW
+  @end domainDependant
+
   !-----------------------------------------------------------------------------
 contains
   !-----------------------------------------------------------------------------

@@ -54,6 +54,7 @@ module mod_mp_driver
 contains
   !-----------------------------------------------------------------------------
   !> setup
+  @scheme{name(HOST_ONLY)}
   subroutine mp_init( MP_TYPE_in )
 !ESC!    use mod_adm, only: &
 !ESC!       ADM_proc_stop
@@ -140,6 +141,7 @@ contains
 
     return
   end subroutine mp_init
+  @end scheme
 
   !-----------------------------------------------------------------------------
   subroutine mp_driver( &
@@ -228,6 +230,8 @@ contains
 !ESC!       mp_ndw6
 !ESC!    use mod_history, only: &
 !ESC!       history_in
+    use mod_debug, only: kdim, CONST_UNDEF, nqmax
+
     implicit none
 
     integer,  intent(in)    :: ijdim
@@ -312,56 +316,104 @@ contains
     real(RP) :: fraction_mp ! 1 / MP_DIV_NUM
     real(RP) :: dt_mp
 
-    integer  :: k ,ij, m
+    integer  :: k ,ij, m, idx1, nq
+
+    @domainDependant{attribute(autoDom, present)}
+    rhog, rhogvx, rhogvy, rhogvz, rhogw, rhoge, rhogq, vx, vy, vz, w,
+    unccn, rho, tem, pre, q, qd, precip, ISO1_precip, ISO2_precip,
+    precip_rhoe, precip_lh_heat, precip_rhophi, precip_rhokin,
+    re_liquid, re_solid, re_cld, rctop, rwtop, tctop,
+    frhoge_af, frhogqv_af, frhoge_rad, rhogqke,
+    gsgam2, gsgam2h, gam2, gam2h, ix, iy, iz, jx, jy, jz, z, zh
+    GDCLW, GDCFRC, GPREC, CBMFX,
+    precip_trc, precip_sum, ISO1_precip_sum, ISO2_precip_sum,
+    precip_rhoe_sum, precip_lh_heat_sum, precip_rhophi_sum, precip_rhokin_sum, precip_trc_sum,
+    GDCLW_sum, GDCFRC_sum, GPREC_sum,
+    re_rain, re_ice, re_snow, re_graupel, rctop_cld, rwtop_cld, tctop_cld, qke
+    @end domainDependant
     !---------------------------------------------------------------------------
 
     fraction_mp = 1.0_RP / real(MP_DIV_NUM,kind=8)
     dt_mp       = dt * fraction_mp
 
-    !$omp parallel workshare
-    precip_sum        (:,:) = 0.0_RP
-    ISO1_precip_sum   (:,:) = 0.0_RP
-    ISO2_precip_sum   (:,:) = 0.0_RP
-    precip_rhoe_sum   (:)   = 0.0_RP
-    precip_lh_heat_sum(:)   = 0.0_RP
-    precip_rhophi_sum (:)   = 0.0_RP
-    precip_rhokin_sum (:)   = 0.0_RP
-    precip_trc_sum    (:,:) = 0.0_RP
-    GPREC_sum         (:,:) = 0.0_RP
-    GDCLW_sum         (:,:) = 0.0_RP
-    GDCFRC_sum        (:,:) = 0.0_RP
-    !$omp end parallel workshare
+    ! !$omp parallel workshare
+
+    @parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
+    precip_sum        (ij,idx1) = 0.0_RP
+    ISO1_precip_sum   (ij,idx1) = 0.0_RP
+    ISO2_precip_sum   (ij,idx1) = 0.0_RP
+    @end parallelRegion
+
+    @parallelRegion{domName(ij), domSize(ijdim)}
+    precip_rhoe_sum   (ij)   = 0.0_RP
+    precip_lh_heat_sum(ij)   = 0.0_RP
+    precip_rhophi_sum (ij)   = 0.0_RP
+    precip_rhokin_sum (ij)   = 0.0_RP
+    @end parallelRegion
+
+    @parallelRegion{domName(ij,nq), domSize(ijdim,nqmax)}
+    precip_trc_sum    (ij,nq) = 0.0_RP
+    @end parallelRegion
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+    GPREC_sum         (ij,k) = 0.0_RP
+    GDCLW_sum         (ij,k) = 0.0_RP
+    GDCFRC_sum        (ij,k) = 0.0_RP
+    @end parallelRegion
+
+    ! !$omp end parallel workshare
 
     if ( MP_TYPE /= 'NDW6') then
-       !$omp parallel workshare
-       re_rain   (:,:) = CONST_UNDEF
-       re_ice    (:,:) = CONST_UNDEF
-       re_snow   (:,:) = CONST_UNDEF
-       re_graupel(:,:) = CONST_UNDEF
-       !$omp end parallel workshare
+       ! !$omp parallel workshare
+
+       @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+       re_rain   (ij,k) = CONST_UNDEF
+       re_ice    (ij,k) = CONST_UNDEF
+       re_snow   (ij,k) = CONST_UNDEF
+       re_graupel(ij,k) = CONST_UNDEF
+       @end parallelRegion
+
+       ! !$omp end parallel workshare
     endif
 
     do m = 1, MP_DIV_NUM
-       !$omp parallel workshare
-       precip        (:,:) = 0.0_RP
-       ISO1_precip   (:,:) = 0.0_RP
-       ISO2_precip   (:,:) = 0.0_RP
-       precip_rhoe   (:)   = 0.0_RP
-       precip_lh_heat(:)   = 0.0_RP
-       precip_rhophi (:)   = 0.0_RP
-       precip_rhokin (:)   = 0.0_RP
-       precip_trc    (:,:) = 0.0_RP
-       GPREC         (:,:) = 0.0_RP
-       GDCLW         (:,:) = 0.0_RP
-       GDCFRC        (:,:) = 0.0_RP
-       !$omp end parallel workshare
+       ! !$omp parallel workshare
+
+       @parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
+       precip        (ij,idx1) = 0.0_RP
+       ISO1_precip   (ij,idx1) = 0.0_RP
+       ISO2_precip   (ij,idx1) = 0.0_RP
+       @end parallelRegion
+
+       @parallelRegion{domName(ij), domSize(ijdim)}
+       precip_rhoe   (ij)   = 0.0_RP
+       precip_lh_heat(ij)   = 0.0_RP
+       precip_rhophi (ij)   = 0.0_RP
+       precip_rhokin (ij)   = 0.0_RP
+       @end parallelRegion
+
+       @parallelRegion{domName(ij,nq), domSize(ijdim,nqmax)}
+       precip_trc    (ij,nq) = 0.0_RP
+       @end parallelRegion
+
+       @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+       GPREC         (ij,k) = 0.0_RP
+       GDCLW         (ij,k) = 0.0_RP
+       GDCFRC        (ij,k) = 0.0_RP
+       @end parallelRegion
+
+       ! !$omp end parallel workshare
 
        if ( MP_TYPE == 'NONE' ) then
 
-          !$omp parallel workshare
-          re_liquid(:,:) = 10.E-6_RP ! not supported
-          re_solid (:,:) = 20.E-6_RP ! not supported
-          !$omp end parallel workshare
+          ! !$omp parallel workshare
+
+          @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+          re_liquid(ij,k) = 10.E-6_RP ! not supported
+          re_solid (ij,k) = 20.E-6_RP ! not supported
+          @end parallelRegion
+
+          ! !$omp end parallel workshare
 
 !ESC!       elseif( MP_TYPE == 'NDW6' ) then
 !ESC!
@@ -741,9 +793,13 @@ contains
                         z             (:,:),   & ! [IN]
                         dt_mp                  ) ! [IN]
 
-          !$omp parallel workshare
-          re_solid(:,:) = 20.E-6_RP ! not supported
-          !$omp end parallel workshare
+          ! !$omp parallel workshare
+
+          @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+          re_solid(ij,k) = 20.E-6_RP ! not supported
+          @end parallelRegion
+
+          ! !$omp end parallel workshare
 
 !ESC!       elseif( MP_TYPE == 'LIN' ) then
 !ESC!
@@ -838,34 +894,60 @@ contains
 !ESC!          !$omp end parallel workshare
        endif
 
-       !$omp parallel workshare
-       precip_sum        (:,:) = precip_sum        (:,:) + precip        (:,:)
-       ISO1_precip_sum   (:,:) = ISO1_precip_sum   (:,:) + ISO1_precip   (:,:)
-       ISO2_precip_sum   (:,:) = ISO2_precip_sum   (:,:) + ISO2_precip   (:,:)
-       precip_rhoe_sum   (:)   = precip_rhoe_sum   (:)   + precip_rhoe   (:)
-       precip_lh_heat_sum(:)   = precip_lh_heat_sum(:)   + precip_lh_heat(:)
-       precip_rhophi_sum (:)   = precip_rhophi_sum (:)   + precip_rhophi (:)
-       precip_rhokin_sum (:)   = precip_rhokin_sum (:)   + precip_rhokin (:)
-       precip_trc_sum    (:,:) = precip_trc_sum    (:,:) + precip_trc    (:,:)
-       GDCLW_sum         (:,:) = GDCLW_sum         (:,:) + GDCLW         (:,:)
-       GDCFRC_sum        (:,:) = GDCFRC_sum        (:,:) + GDCFRC        (:,:)
-       GPREC_sum         (:,:) = GPREC_sum         (:,:) + GPREC         (:,:)
-       !$omp end parallel workshare
+       ! !$omp parallel workshare
+
+       @parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
+       precip_sum        (ij,idx1) = precip_sum        (ij,idx1) + precip        (ij,idx1)
+       ISO1_precip_sum   (ij,idx1) = ISO1_precip_sum   (ij,idx1) + ISO1_precip   (ij,idx1)
+       ISO2_precip_sum   (ij,idx1) = ISO2_precip_sum   (ij,idx1) + ISO2_precip   (ij,idx1)
+       @end parallelRegion
+
+       @parallelRegion{domName(ij), domSize(ijdim)}
+       precip_rhoe_sum   (ij)   = precip_rhoe_sum   (ij)   + precip_rhoe   (ij)
+       precip_lh_heat_sum(ij)   = precip_lh_heat_sum(ij)   + precip_lh_heat(ij)
+       precip_rhophi_sum (ij)   = precip_rhophi_sum (ij)   + precip_rhophi (ij)
+       precip_rhokin_sum (ij)   = precip_rhokin_sum (ij)   + precip_rhokin (ij)
+       @end parallelRegion
+
+       @parallelRegion{domName(ij,nq), domSize(ijdim,nqmax)}
+       precip_trc_sum    (ij,nq) = precip_trc_sum    (ij,nq) + precip_trc    (ij,nq)
+       @end parallelRegion
+
+       @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+       GDCLW_sum         (ij,k) = GDCLW_sum         (ij,k) + GDCLW         (ij,k)
+       GDCFRC_sum        (ij,k) = GDCFRC_sum        (ij,k) + GDCFRC        (ij,k)
+       GPREC_sum         (ij,k) = GPREC_sum         (ij,k) + GPREC         (ij,k)
+       @end parallelRegion
+
+       ! !$omp end parallel workshare
     enddo
 
-    !$omp parallel workshare
-    precip        (:,:) = precip_sum        (:,:) * fraction_mp
-    ISO1_precip   (:,:) = ISO1_precip_sum   (:,:) * fraction_mp
-    ISO2_precip   (:,:) = ISO2_precip_sum   (:,:) * fraction_mp
-    precip_rhoe   (:)   = precip_rhoe_sum   (:)   * fraction_mp
-    precip_lh_heat(:)   = precip_lh_heat_sum(:)   * fraction_mp
-    precip_rhophi (:)   = precip_rhophi_sum (:)   * fraction_mp
-    precip_rhokin (:)   = precip_rhokin_sum (:)   * fraction_mp
-    precip_trc    (:,:) = precip_trc_sum    (:,:) * fraction_mp
-    GDCLW         (:,:) = GDCLW_sum         (:,:) * fraction_mp
-    GDCFRC        (:,:) = GDCFRC_sum        (:,:) * fraction_mp
-    GPREC         (:,:) = GPREC_sum         (:,:) * fraction_mp
-    !$omp end parallel workshare
+    ! !$omp parallel workshare
+
+    @parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
+    precip        (ij,idx1) = precip_sum        (ij,idx1) * fraction_mp
+    ISO1_precip   (ij,idx1) = ISO1_precip_sum   (ij,idx1) * fraction_mp
+    ISO2_precip   (ij,idx1) = ISO2_precip_sum   (ij,idx1) * fraction_mp
+    @end parallelRegion
+
+    @parallelRegion{domName(ij), domSize(ijdim)}
+    precip_rhoe   (ij)   = precip_rhoe_sum   (ij)   * fraction_mp
+    precip_lh_heat(ij)   = precip_lh_heat_sum(ij)   * fraction_mp
+    precip_rhophi (ij)   = precip_rhophi_sum (ij)   * fraction_mp
+    precip_rhokin (ij)   = precip_rhokin_sum (ij)   * fraction_mp
+    @end parallelRegion
+
+    @parallelRegion{domName(ij,nq), domSize(ijdim,nqmax)}
+    precip_trc    (ij,nq) = precip_trc_sum    (ij,nq) * fraction_mp
+    @end parallelRegion
+
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+    GDCLW         (ij,k) = GDCLW_sum         (ij,k) * fraction_mp
+    GDCFRC        (ij,k) = GDCFRC_sum        (ij,k) * fraction_mp
+    GPREC         (ij,k) = GPREC_sum         (ij,k) * fraction_mp
+    @end parallelRegion
+
+    ! !$omp end parallel workshare
 
     ! [Move] 2016/03/29 T.Seiki
 !!$    call history_in( 'ml_re_cld'    , re_cld     )

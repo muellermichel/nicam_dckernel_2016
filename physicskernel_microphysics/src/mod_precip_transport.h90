@@ -265,6 +265,8 @@ contains
     drhoq, drhoe, drhophi, drhokin_h, drhokin_v, drhogu, drhogv, drhogw, kin_h0, kin_h,
     vx_t, vy_t, vz_t, kin_v0, kin_v, w_t, zdis0, kcell, kcell_max, kcell_min, zdis0h,
     kcellh, kcellh_max, kcellh_min, Vtermq, Vtermh, qh, rhogh, ein, tmp, tmp_h, tmp_v, tmp2, C2Wfact, W2Cfact, GRD_gz_shift
+    GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh,
+    GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact, CVW
     @end domainDependant
     !---------------------------------------------------------------------------
 
