@@ -106,13 +106,13 @@ module mod_mp_nsw6
   !---< Roh and Satoh (2014) >---
   real(RP), private            :: sw_roh2014 = 0.0_RP      !< switch for Roh scheme
   real(RP), private            :: ln10                 !< log(10)
-  real(RP), private            :: coef_a(10) = (/ 5.065339_RP, -0.062659_RP, -3.032362_RP, 0.029469_RP, -0.000285_RP, &
+  real(RP), public             :: coef_a(10) = (/ 5.065339_RP, -0.062659_RP, -3.032362_RP, 0.029469_RP, -0.000285_RP, &
                                                   0.31255_RP,   0.000204_RP,  0.003199_RP, 0.0_RP,      -0.015952_RP  /)
-  real(RP), private            :: coef_b(10) = (/ 0.476221_RP, -0.015896_RP,  0.165977_RP, 0.007468_RP, -0.000141_RP, &
+  real(RP), public             :: coef_b(10) = (/ 0.476221_RP, -0.015896_RP,  0.165977_RP, 0.007468_RP, -0.000141_RP, &
                                                   0.060366_RP,  0.000079_RP,  0.000594_RP, 0.0_RP,      -0.003577_RP  /)
 
   ! Bergeron parameter
-  real(RP), private            :: a1_tab(32) = (/ 0.0001E-7_RP, 0.7939E-7_RP, 0.7841E-6_RP, 0.3369E-5_RP, 0.4336E-5_RP, &
+  real(RP), public             :: a1_tab(32) = (/ 0.0001E-7_RP, 0.7939E-7_RP, 0.7841E-6_RP, 0.3369E-5_RP, 0.4336E-5_RP, &
                   0.5285E-5_RP, 0.3728E-5_RP, 0.1852E-5_RP, 0.2991E-6_RP, 0.4248E-6_RP, &
                   0.7434E-6_RP, 0.1812E-5_RP, 0.4394E-5_RP, 0.9145E-5_RP, 0.1725E-4_RP, &
                   0.3348E-4_RP, 0.1725E-4_RP, 0.9175E-5_RP, 0.4412E-5_RP, 0.2252E-5_RP, &
@@ -120,7 +120,7 @@ module mod_mp_nsw6
                   0.8573E-6_RP, 0.7868E-6_RP, 0.7192E-6_RP, 0.6513E-6_RP, 0.5956E-6_RP, &
                   0.5333E-6_RP, 0.4834E-6_RP  /)
 
-  real(RP), private            :: a2_tab(32) = (/ 0.0100_RP, 0.4006_RP, 0.4831_RP, 0.5320_RP, 0.5307_RP, &
+  real(RP), public             :: a2_tab(32) = (/ 0.0100_RP, 0.4006_RP, 0.4831_RP, 0.5320_RP, 0.5307_RP, &
                   0.5319_RP, 0.5249_RP, 0.4888_RP, 0.3849_RP, 0.4047_RP, &
                   0.4318_RP, 0.4771_RP, 0.5183_RP, 0.5463_RP, 0.5651_RP, &
                   0.5813_RP, 0.5655_RP, 0.5478_RP, 0.5203_RP, 0.4906_RP, &

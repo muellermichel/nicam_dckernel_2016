@@ -35,7 +35,7 @@ cores=$(physical_cores)
 if [ ! -z $NCPUS ] ; then
 	cores=${NCPUS}
 fi
-cores=7
+# cores=7
 
 local_rank=${OMPI_COMM_WORLD_LOCAL_RANK}
 if [ -z "${local_rank}" ] ; then
