@@ -249,44 +249,27 @@ contains
        if (       kcell_min(k) == k &
             .AND. kcell_max(k) == k ) then
 
-
-
              zdis(ij,k) = zdis0(ij,k)
-
 
        else
           do k2 = kcell_min(k), kcell_max(k)
 
              ! sum up over k2 = kcell(ij,k)+1, k-1 : if w > 0
              ! or          k2 = k, kcell(ij,k)-1   : if w < 0
-
-
                 fact = dz(k2) * 0.25_RP &
                      * ( ( sign(1,k2-(kcell(ij,k)+1)) + 1.0_RP ) * ( sign(1,(k          -1)-k2) + 1.0_RP ) &
                        - ( sign(1,k2-k              ) + 1.0_RP ) * ( sign(1,(kcell(ij,k)-1)-k2) + 1.0_RP ) )
-
-
                 frhof(ij,k) = frhof(ij,k) + rhof(ij,k2) * fact
                 zdis (ij,k) = zdis0(ij,k) - fact
-
-
           enddo
        endif
 
        !ocl XFILL
-
-
           frhof(ij,k) = frhof(ij,k) + rhof(ij,kcell(ij,k)) * zdis(ij,k)
-
-
     enddo
 
     do k  = 1, kdim
-
-
           frhof(ij,k) = frhof(ij,k) * ( 0.5_RP + sign(0.5_RP, abs(frhof(ij,k)) - CONST_EPS ) ) ! small negative filter
-
-
     enddo
     @end parallelRegion
 

@@ -862,40 +862,6 @@ if ( TIME_CSTEP == EX_STEP ) then
    call PROF_rapstart('_kernel_partM12')
 endif
 
-
-
-
-
-
-
-
-
-
-
-
-
-! !    !$omp private(ml_wk)                                                                                     &
-
-
-
-
-
-
-
-
-
-
-
-! #if defined _OPENMP && _OPENMP >= 201511
-
-!        veclen = min( ijdim-blk+1, simdlen )
-
-
-!           ij = blk + vec - 1
-! #else
-
-! #endif
-
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
           dens     = rho(ij,k)
           temp     = tem(ij,k)
@@ -1579,13 +1545,6 @@ endif
           tctop_cld(ij,1) = (        sw ) * temp &
                           + ( 1.0_RP-sw ) * UNDEF
       @end parallelRegion
-
-! #if defined _OPENMP && _OPENMP >= 201511
-
-! #endif
-
-
-
 
 if ( TIME_CSTEP == EX_STEP ) then
    call PROF_rapend  ('_kernel_partM12')
