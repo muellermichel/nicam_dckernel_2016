@@ -1791,7 +1791,7 @@ endif
                                   qd,                &
                                   z,                 &
                                   Vt,                &
-                                  preciptation_flag, &
+                                  ! preciptation_flag, &
                                   precip,            &
                                   precip_rhoe,       &
                                   precip_lh_heat,    &

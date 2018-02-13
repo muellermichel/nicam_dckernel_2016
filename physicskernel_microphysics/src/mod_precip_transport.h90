@@ -32,6 +32,7 @@ module mod_precip_transport
   !
   !++ Public procedures
   !
+  public :: precip_transport_ini
   public :: precip_transport_new
 
   !-----------------------------------------------------------------------------
@@ -43,8 +44,27 @@ module mod_precip_transport
   !++ Private variables
   !
   !-----------------------------------------------------------------------------
+
+  logical, allocatable, public :: precipitating_flag(:)
+
+  @domainDependant{domName(nq), domSize(nqmax), attribute(host)}
+  precipitating_flag
+  @end domainDependant
 contains
   !-----------------------------------------------------------------------------
+  subroutine precip_transport_ini
+    allocate(precipitating_flag(nqmax))
+    precipitating_flag(:)    = .false.
+    precipitating_flag(I_QR) = .true.
+    ! precipitating_flag(I_QI) = .true.
+    precipitating_flag(I_QS) = .true.
+    precipitating_flag(I_QG) = .true.
+
+    ! if ( precip_transport_type == '3WATER' ) then
+       precipitating_flag(I_QI) = .false.
+    ! endif
+  end subroutine precip_transport_ini
+
   subroutine precip_transport_new( &
        ijdim,              &
        rhog,               &
@@ -65,7 +85,7 @@ contains
        qd,                 &
        z,                  &
        Vterm,              &
-       precipitating_flag, &
+       ! precipitating_flag, &
        precip,             &
        precip_rhoe,        &
        precip_lh_heat,     &
@@ -147,7 +167,7 @@ contains
     real(RP), intent(out)   :: qd                (ijdim,kdim)
     real(RP), intent(in)    :: z                 (ijdim,kdim)
     real(RP), intent(in)    :: Vterm             (ijdim,kdim,nqmax)
-    logical,  intent(in)    :: precipitating_flag(nqmax)
+    ! logical,  intent(in)    :: precipitating_flag(nqmax)
     real(RP), intent(out)   :: precip            (ijdim,2)
     real(RP), intent(out)   :: precip_rhoe       (ijdim)
     real(RP), intent(out)   :: precip_lh_heat    (ijdim)

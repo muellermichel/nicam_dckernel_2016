@@ -116,7 +116,7 @@ module mod_satadjust
   !++ Private procedures
   !
   private :: satadjust_all
-  ! private :: satadjust_liq
+  private :: satadjust_liq
 
   !-----------------------------------------------------------------------------
   !
@@ -1654,8 +1654,8 @@ contains
 !ESC!       LHV
     use mod_thrmdyn, only: &
        THRMDYN_qd_ijk
-    use mod_debug, only: CONST_EPS, CONST_CVdry, CONST_Rvap, CONST_PSAT0, CONST_TEM00,
-      ADM_proc_stop, kmin, kmax,
+    use mod_debug, only: CONST_EPS, CONST_CVdry, CONST_Rvap, CONST_PSAT0, CONST_TEM00, &
+      ADM_proc_stop, kmin, kmax, &
       nqmax, NQW_STR, NQW_END, I_QV, I_QC, CVW, LHV
     implicit none
 

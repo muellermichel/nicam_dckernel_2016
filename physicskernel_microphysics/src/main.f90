@@ -10,6 +10,7 @@ program physicskernel_microphysics
   !
   use mod_precision
   use mod_debug
+  use mod_precip_transport, only: precip_transport_ini
   use mod_satadjust, only: &
      SATURATION_setup
   use mod_mp_driver, only: &
@@ -269,6 +270,7 @@ program physicskernel_microphysics
 
   !---  microphysics initialization
   call mp_init( MP_TYPE )
+  call precip_transport_ini
 
   !###############################################################################
 
