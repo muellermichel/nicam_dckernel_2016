@@ -791,20 +791,12 @@ contains
 
     RTEM00 = 1.0_RP / CONST_TEM00
     PSAT0  = CONST_PSAT0
-
-    ! !$omp parallel do default(none),private(ij,k,rtem), &
-    ! !$omp shared(ijdim,kdim,psat,tem,CPovR_liq,LovR_liq,RTEM00,PSAT0)
-    ! do k  = 1, kdim
-    ! do ij = 1, ijdim
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        rtem = 1.0_RP / max( tem(ij,k), TEM_MIN )
 
        psat(ij,k) = PSAT0 * ( tem(ij,k) * RTEM00 )**CPovR_liq &
                           * exp( LovR_liq * ( RTEM00 - rtem ) )
     @end parallelRegion
-    ! enddo
-    ! enddo
-    ! !$omp end parallel do
 
     return
   end subroutine SATURATION_psat_liq_2D
@@ -905,20 +897,12 @@ contains
 
     RTEM00 = 1.0_RP / CONST_TEM00
     PSAT0  = CONST_PSAT0
-
-    ! !$omp parallel do default(none),private(ij,k,rtem), &
-    ! !$omp shared(ijdim,kdim,psat,tem,CPovR_ice,LovR_ice,RTEM00,PSAT0)
-    ! do k  = 1, kdim
-    ! do ij = 1, ijdim
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        rtem = 1.0_RP / max( tem(ij,k), TEM_MIN )
 
        psat(ij,k) = PSAT0 * ( tem(ij,k) * RTEM00 )**CPovR_ice &
                           * exp( LovR_ice * ( RTEM00 - rtem ) )
     @end parallelRegion
-    ! enddo
-    ! enddo
-    ! !$omp end parallel do
 
     return
   end subroutine SATURATION_psat_ice_2D
@@ -1311,11 +1295,6 @@ contains
 
     ! ein_moist = U1(rho,qsum,T1) : "unsaturated temperature"
     if ( I_QI > 0 .AND. ice_adjust ) then
-       ! !$omp parallel do default(none),private(ij,k), &
-       ! !$omp shared(ijdim,kdim,ein_moist,qsum,rhoge,rhog,q,LHV,LHF,I_QV,I_QC,I_QI)
-       ! do k  = 1, kdim
-       ! do ij = 1, ijdim
-
        @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
           ein_moist(ij,k) = rhoge(ij,k) / rhog(ij,k) &
                           + q(ij,k,I_QV) * LHV &
@@ -1330,15 +1309,7 @@ contains
           q(ij,k,I_QI) = 0.0_RP
       @end parallelRegion
 
-       ! enddo
-       ! enddo
-       ! !$omp end parallel do
     else
-       ! !$omp parallel do default(none),private(ij,k), &
-       ! !$omp shared(ijdim,kdim,ein_moist,qsum,rhoge,rhog,q,LHV,I_QV,I_QC)
-       ! do k  = 1, kdim
-       ! do ij = 1, ijdim
-
        @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
           ein_moist(ij,k) = rhoge(ij,k) / rhog(ij,k) &
                           + q(ij,k,I_QV) * LHV
@@ -1350,9 +1321,6 @@ contains
           q(ij,k,I_QC) = 0.0_RP
       @end parallelRegion
 
-       ! enddo
-       ! enddo
-       ! !$omp end parallel do
     endif
 
     call THRMDYN_cv_ijk( ijdim,        & ! [IN]
@@ -1360,20 +1328,10 @@ contains
                      qd   (:,:),   & ! [IN]
                      q    (:,:,:), & ! [IN]
                      CVtot(:,:)    ) ! [OUT]
-
-    ! !$omp parallel do default(none),private(ij,k), &
-    ! !$omp shared(ijdim,kdim,rho,tem,ein_moist,q,rhog,gsgam2,CVtot,I_QV,LHV)
-    ! do k  = 1, kdim
-    ! do ij = 1, ijdim
-
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        rho(ij,k) = rhog(ij,k) / gsgam2(ij,k)
        tem(ij,k) = ( ein_moist(ij,k) - q(ij,k,I_QV) * LHV ) / CVtot(ij,k)
     @end parallelRegion
-
-    ! enddo
-    ! enddo
-    ! !$omp end parallel do
 
     if ( I_QI > 0 .AND. ice_adjust ) then
        call satadjust_all( ijdim,           & ! [IN]
@@ -1392,34 +1350,16 @@ contains
                            tem      (:,:),  & ! [INOUT]
                            q        (:,:,:) ) ! [INOUT]
     endif
-
-    ! !$omp parallel do default(none),private(ij,k), &
-    ! !$omp shared(ijdim,kdim,rhogq,rhog,q,I_QV,I_QC)
-    ! do k  = 1, kdim
-    ! do ij = 1, ijdim
-
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        rhogq(ij,k,I_QV) = rhog(ij,k) * q(ij,k,I_QV)
        rhogq(ij,k,I_QC) = rhog(ij,k) * q(ij,k,I_QC)
     @end parallelRegion
 
-    ! enddo
-    ! enddo
-    ! !$omp end parallel do
-
     if ( I_QI > 0 .AND. ice_adjust ) then
-       ! !$omp parallel do default(none),private(ij,k), &
-       ! !$omp shared(ijdim,kdim,rhogq,rhog,q,I_QI)
-       ! do k  = 1, kdim
-       ! do ij = 1, ijdim
-
        @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
           rhogq(ij,k,I_QI) = rhog(ij,k) * q(ij,k,I_QI)
        @end parallelRegion
 
-       ! enddo
-       ! enddo
-       ! !$omp end parallel do
     endif
 
     call THRMDYN_cv_ijk( ijdim,        & ! [IN]
@@ -1427,19 +1367,9 @@ contains
                      qd   (:,:),   & ! [IN]
                      q    (:,:,:), & ! [IN]
                      CVtot(:,:)    ) ! [OUT]
-
-    ! !$omp parallel do default(none),private(ij,k), &
-    ! !$omp shared(ijdim,kdim,rhoge,rhog,tem,CVtot)
-    ! do k  = 1, kdim
-    ! do ij = 1, ijdim
-
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        rhoge(ij,k) = rhog(ij,k) * tem(ij,k) * CVtot(ij,k)
     @end parallelRegion
-
-    ! enddo
-    ! enddo
-    ! !$omp end parallel do
 
     call PROF_rapend  ('____Saturation_Adjustment')
 
@@ -1517,18 +1447,6 @@ contains
     RTEM00 = 1.0_RP / CONST_TEM00
 
     call THRMDYN_qd_ijk( ijdim, kdim, q(:,:,:), qd(:,:) )
-
-    ! !$omp parallel do default(none), &
-    ! !$omp private(ij,k,nq,ite,converged,rtem,lim1,lim2,                                    &
-    ! !$omp         alpha,psatl,psati,psat,qsatl,qsati,qsat,CVtot,Emoist_new,dtemp,          &
-    ! !$omp         dalpha_dT,dqsatl_dT,dqsati_dT,dqsat_dT,dqc_dT,dqi_dT,dCVtot_dT,dEmoist_dT), &
-    ! !$omp shared (ijdim,kmin,kmax,tem,q,qd,rho,Emoist,qsum,                               &
-    ! !$omp         CPovR_liq,CVovR_liq,LovR_liq,CPovR_ice,CVovR_ice,LovR_ice,              &
-    ! !$omp         NQW_STR,NQW_END,I_QV,I_QC,I_QI,CVW,LHV,LHF,RTEM00,PSAT0,Rvap,CVdry,EPS, &
-    ! !$omp         SATURATION_ULIMIT_TEMP,SATURATION_LLIMIT_TEMP,dtemp_criteria)
-    ! do k  = kmin, kmax
-    ! do ij = 1, ijdim
-
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        alpha = ( tem(ij,k)              - SATURATION_LLIMIT_TEMP ) &
              / ( SATURATION_ULIMIT_TEMP - SATURATION_LLIMIT_TEMP )
@@ -1618,10 +1536,6 @@ contains
        endif
     @end parallelRegion
 
-    ! enddo
-    ! enddo
-    ! !$omp end parallel do
-
     return
   end subroutine satadjust_all
 
@@ -1694,17 +1608,6 @@ contains
     RTEM00 = 1.0_RP / CONST_TEM00
 
     call THRMDYN_qd_ijk( ijdim, kdim, q(:,:,:), qd(:,:) )
-
-    ! !$omp parallel do default(none), &
-    ! !$omp private(ij,k,nq,ite,converged,rtem,                                   &
-    ! !$omp         psat,qsat,CVtot,Emoist_new,dtemp,dqsat_dT,dCVtot_dT,dEmoist_dT), &
-    ! !$omp shared (ijdim,kmin,kmax,tem,q,qd,rho,Emoist,qsum,                      &
-    ! !$omp         CPovR_liq,CVovR_liq,LovR_liq,                                  &
-    ! !$omp         NQW_STR,NQW_END,I_QV,I_QC,CVW,LHV,RTEM00,PSAT0,Rvap,CVdry,EPS, &
-    ! !$omp         SATURATION_ULIMIT_TEMP,SATURATION_LLIMIT_TEMP,dtemp_criteria)
-    ! do k  = kmin, kmax
-    ! do ij = 1, ijdim
-
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
 
        rtem = 1.0_RP / max( tem(ij,k), TEM_MIN )
@@ -1765,9 +1668,6 @@ contains
        endif
 
     @end parallelRegion
-
-    ! enddo
-    ! enddo
 
     return
   end subroutine satadjust_liq

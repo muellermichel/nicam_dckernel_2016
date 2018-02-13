@@ -336,8 +336,6 @@ contains
     fraction_mp = 1.0_RP / real(MP_DIV_NUM,kind=8)
     dt_mp       = dt * fraction_mp
 
-    ! !$omp parallel workshare
-
     @parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
     precip_sum        (ij,idx1) = 0.0_RP
     ISO1_precip_sum   (ij,idx1) = 0.0_RP
@@ -361,11 +359,7 @@ contains
     GDCFRC_sum        (ij,k) = 0.0_RP
     @end parallelRegion
 
-    ! !$omp end parallel workshare
-
     if ( MP_TYPE /= 'NDW6') then
-       ! !$omp parallel workshare
-
        @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        re_rain   (ij,k) = CONST_UNDEF
        re_ice    (ij,k) = CONST_UNDEF
@@ -373,12 +367,9 @@ contains
        re_graupel(ij,k) = CONST_UNDEF
        @end parallelRegion
 
-       ! !$omp end parallel workshare
     endif
 
     do m = 1, MP_DIV_NUM
-       ! !$omp parallel workshare
-
        @parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
        precip        (ij,idx1) = 0.0_RP
        ISO1_precip   (ij,idx1) = 0.0_RP
@@ -402,18 +393,11 @@ contains
        GDCFRC        (ij,k) = 0.0_RP
        @end parallelRegion
 
-       ! !$omp end parallel workshare
-
        if ( MP_TYPE == 'NONE' ) then
-
-          ! !$omp parallel workshare
-
           @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
           re_liquid(ij,k) = 10.E-6_RP ! not supported
           re_solid (ij,k) = 20.E-6_RP ! not supported
           @end parallelRegion
-
-          ! !$omp end parallel workshare
 
 !ESC!       elseif( MP_TYPE == 'NDW6' ) then
 !ESC!
@@ -793,13 +777,9 @@ contains
                         z             (:,:),   & ! [IN]
                         dt_mp                  ) ! [IN]
 
-          ! !$omp parallel workshare
-
           @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
           re_solid(ij,k) = 20.E-6_RP ! not supported
           @end parallelRegion
-
-          ! !$omp end parallel workshare
 
 !ESC!       elseif( MP_TYPE == 'LIN' ) then
 !ESC!
@@ -894,8 +874,6 @@ contains
 !ESC!          !$omp end parallel workshare
        endif
 
-       ! !$omp parallel workshare
-
        @parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
        precip_sum        (ij,idx1) = precip_sum        (ij,idx1) + precip        (ij,idx1)
        ISO1_precip_sum   (ij,idx1) = ISO1_precip_sum   (ij,idx1) + ISO1_precip   (ij,idx1)
@@ -919,11 +897,8 @@ contains
        GPREC_sum         (ij,k) = GPREC_sum         (ij,k) + GPREC         (ij,k)
        @end parallelRegion
 
-       ! !$omp end parallel workshare
     enddo
-
-    ! !$omp parallel workshare
-
+    
     @parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
     precip        (ij,idx1) = precip_sum        (ij,idx1) * fraction_mp
     ISO1_precip   (ij,idx1) = ISO1_precip_sum   (ij,idx1) * fraction_mp
@@ -946,8 +921,6 @@ contains
     GDCFRC        (ij,k) = GDCFRC_sum        (ij,k) * fraction_mp
     GPREC         (ij,k) = GPREC_sum         (ij,k) * fraction_mp
     @end parallelRegion
-
-    ! !$omp end parallel workshare
 
     ! [Move] 2016/03/29 T.Seiki
 !!$    call history_in( 'ml_re_cld'    , re_cld     )

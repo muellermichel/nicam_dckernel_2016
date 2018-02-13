@@ -139,31 +139,22 @@ contains
     q, qd
     @end domainDependant
     !---------------------------------------------------------------------------
-
-    ! !$omp parallel default(none),private(ij,k,nq), &
-    ! !$omp shared(ijdim,kdim,NQW_STR,NQW_END,qd,q)
-
-    ! !$omp do
-    ! do k  = 1, kdim
-    ! do ij = 1, ijdim
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        qd(ij,k) = 1.0_RP
-    ! enddo
-    ! enddo
-    ! !$omp end do
+
+
+
 
     do nq = NQW_STR, NQW_END
-       ! !$omp do
-       ! do k  = 1, kdim
-       ! do ij = 1, ijdim
+
+
+
           qd(ij,k) = qd(ij,k) - q(ij,k,nq)
-       ! enddo
-       ! enddo
-       ! !$omp end do
+
+
+
     enddo
     @end parallelRegion
-
-    ! ! $omp end parallel
 
 !ACC!    !$acc kernels pcopy(qd) pcopyin(q) async(0)
 !ACC!    do k  = 1, kdim
@@ -287,32 +278,22 @@ contains
     !---------------------------------------------------------------------------
 
     CVdry = CONST_CVdry
-
-!    !$omp parallel default(none),private(ij,k,nq), &
-!    !$omp shared(ijdim,kdim,NQW_STR,NQW_END,cv,qd,q,CVW,CVdry)
-
-    ! !$omp do
-    ! do k  = 1, kdim
-    ! do ij = 1, ijdim
-
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        cv(ij,k) = qd(ij,k) * CVdry
-    ! enddo
-    ! enddo
-    ! !$omp end do
+
+
+
 
     do nq = NQW_STR, NQW_END
-       ! !$omp do
-       ! do k  = 1, kdim
-       ! do ij = 1, ijdim
+
+
+
           cv(ij,k) = cv(ij,k) + q(ij,k,nq) * CVW(nq)
-       ! enddo
-       ! enddo
-       ! !$omp end do
+
+
+
     enddo
     @end parallelRegion
-
-    ! ! $omp end parallel
 
 !ACC!    !$acc kernels pcopy(cv) pcopyin(qd,q,CVW) async(0)
 !ACC!    do k  = 1, kdim
@@ -1100,53 +1081,23 @@ contains
     CVdry = CONST_CVdry
     Rdry  = CONST_Rdry
     Rvap  = CONST_Rvap
-
-    ! !$omp parallel default(none),private(ij,k,nq), &
-    ! !$omp shared(ijdim,kdim,NQW_STR,NQW_END,tem,pre,ein,rho,q,cv,qd,CVW,CVdry,Rdry,Rvap,I_QV)
-
-    ! !$omp do
-    ! do k  = 1, kdim
-    ! do ij = 1, ijdim
-
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        cv(ij,k) = 0.0_RP
        qd(ij,k) = 1.0_RP
     @end parallelRegion
 
-    ! enddo
-    ! enddo
-    ! !$omp end do
-
     do nq = NQW_STR, NQW_END
-       ! !$omp do
-       ! do k  = 1, kdim
-       ! do ij = 1, ijdim
-
        @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
           cv(ij,k) = cv(ij,k) + q(ij,k,nq) * CVW(nq)
           qd(ij,k) = qd(ij,k) - q(ij,k,nq)
        @end parallelRegion
 
-       ! enddo
-       ! enddo
-       ! !$omp end do
     enddo
-
-    ! !$omp do
-    ! do k  = 1, kdim
-    ! do ij = 1, ijdim
-
     @parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
        cv (ij,k) = cv (ij,k) + qd (ij,k) * CVdry
        tem(ij,k) = ein(ij,k) / cv (ij,k)
        pre(ij,k) = rho(ij,k) * tem(ij,k) * ( qd(ij,k)*Rdry + q(ij,k,I_QV)*Rvap )
     @end parallelRegion
-
-    ! enddo
-    ! enddo
-    ! !$omp end do
-
-    ! !$omp end parallel
 
 !ACC!    !$acc kernels pcopy(tem,pre,cv,qd) pcopyin(ein,rho,q,CVW) async(0)
 !ACC!    do k  = 1, kdim
