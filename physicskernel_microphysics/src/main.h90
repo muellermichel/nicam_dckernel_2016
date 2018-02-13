@@ -1,3 +1,83 @@
+module mod_main
+  contains
+  subroutine physicskernel_microphysics_run(rhog, rhogvx, rhogvy, rhogvz, rhogw, rhoge, rhogq_Lswp, vx, vy, vz, w, unccn, rho, tem, pre, q_Lswp, qd, precip_mp, precip1_mp, precip2_mp, rhoein_precip_mp, lh_precip_mp, rhophi_precip_mp, rhokin_precip_mp, rceff, rceff_solid, rceff_cld, rctop, rwtop, tctop, frhoge_af, frhogqv_af, frhoge_rad, qke, gsgam2, gsgam2h, gam2, gam2h, ix, iy, iz, jx, jy, jz, z, zh, GDCLW, GDCFRC, GPREC, CBMFX)
+    use time_profiling
+    use helper_functions
+    use mod_debug, only: SET_iteration, SET_l, TIME_DTL, TIME_CTIME, nqmax, kdim, ADM_gall_in, &
+      GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh, GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact, CVW, LHF
+    use mod_precision
+    use mod_mp_driver, only: mp_driver
+    implicit none
+
+    real(RP), intent(inout) :: rhog (ADM_gall_in,kdim)
+    real(RP), intent(inout) :: rhogvx (ADM_gall_in,kdim)
+    real(RP), intent(inout) :: rhogvy (ADM_gall_in,kdim)
+    real(RP), intent(inout) :: rhogvz (ADM_gall_in,kdim)
+    real(RP), intent(inout) :: rhogw (ADM_gall_in,kdim)
+    real(RP), intent(inout) :: rhoge (ADM_gall_in,kdim)
+    real(RP), intent(inout) :: rhogq_Lswp (ADM_gall_in,kdim,nqmax)
+    real(RP), intent(in)    :: vx (ADM_gall_in,kdim)
+    real(RP), intent(in)    :: vy (ADM_gall_in,kdim)
+    real(RP), intent(in)    :: vz (ADM_gall_in,kdim)
+    real(RP), intent(in)    :: w (ADM_gall_in,kdim)
+    real(RP), intent(in)    :: unccn (ADM_gall_in,kdim) ! CCN
+    real(RP), intent(inout) :: rho (ADM_gall_in,kdim)
+    real(RP), intent(inout) :: tem (ADM_gall_in,kdim)
+    real(RP), intent(inout) :: pre (ADM_gall_in,kdim)
+    real(RP), intent(inout) :: q_Lswp (ADM_gall_in,kdim,nqmax)
+    real(RP), intent(out)   :: qd (ADM_gall_in,kdim)
+    real(RP), intent(inout) :: precip_mp (ADM_gall_in,2)
+    real(RP), intent(inout) :: precip1_mp (ADM_gall_in,2)    ! [add] K.Yoshimura 20110414
+    real(RP), intent(inout) :: precip2_mp (ADM_gall_in,2)    ! [add] K.Yoshimura 20110414
+    real(RP), intent(inout) :: rhoein_precip_mp (ADM_gall_in)
+    real(RP), intent(inout) :: lh_precip_mp (ADM_gall_in)
+    real(RP), intent(inout) :: rhophi_precip_mp (ADM_gall_in)
+    real(RP), intent(inout) :: rhokin_precip_mp (ADM_gall_in)
+    real(RP), intent(out)   :: rceff (ADM_gall_in,kdim) ! Effective Radius
+    real(RP), intent(out)   :: rceff_solid (ADM_gall_in,kdim) ! Effective Radius of solid
+    real(RP), intent(out)   :: rceff_cld (ADM_gall_in,kdim) ! Effective Radius
+    real(RP), intent(out)   :: rctop (ADM_gall_in,1)    ! Effective Radius of Cloud Top
+    real(RP), intent(out)   :: rwtop (ADM_gall_in,1)    ! Effective Radius of Warm-Cloud Top
+    real(RP), intent(out)   :: tctop (ADM_gall_in,1)    ! Cloud Top Temperature
+    real(RP), intent(in)    :: frhoge_af (ADM_gall_in,kdim)
+    real(RP), intent(in)    :: frhogqv_af (ADM_gall_in,kdim)
+    real(RP), intent(in)    :: frhoge_rad (ADM_gall_in,kdim) ! energy tendency by radiation
+    real(RP), intent(in)    :: qke (ADM_gall_in,kdim) ! rhog*2*TKE
+    real(RP), intent(in)    :: gsgam2 (ADM_gall_in,kdim)
+    real(RP), intent(in)    :: gsgam2h (ADM_gall_in,kdim)
+    real(RP), intent(in)    :: gam2 (ADM_gall_in,kdim)
+    real(RP), intent(in)    :: gam2h (ADM_gall_in,kdim)
+    real(RP), intent(in)    :: ix (ADM_gall_in)
+    real(RP), intent(in)    :: iy (ADM_gall_in)
+    real(RP), intent(in)    :: iz (ADM_gall_in)
+    real(RP), intent(in)    :: jx (ADM_gall_in)
+    real(RP), intent(in)    :: jy (ADM_gall_in)
+    real(RP), intent(in)    :: jz (ADM_gall_in)
+    real(RP), intent(in)    :: z (ADM_gall_in,kdim)
+    real(RP), intent(in)    :: zh (ADM_gall_in,kdim)
+    real(RP), intent(out)   :: GDCLW (ADM_gall_in,kdim)
+    real(RP), intent(out)   :: GDCFRC (ADM_gall_in,kdim)
+    real(RP), intent(inout) :: GPREC (ADM_gall_in,kdim) ! rain flux
+    real(RP), intent(in)    :: CBMFX (ADM_gall_in,kdim)
+
+    integer :: iteration, l, nq
+    real(8) :: t_start_mp
+
+    @domainDependant{attribute(autoDom, transferHere)}
+    rhog, rhogvx, rhogvy, rhogvz, rhogw, rhoge, rhogq_Lswp, vx, vy, vz, w, unccn, rho, tem, pre, q_Lswp, qd, precip_mp, precip1_mp, precip2_mp, rhoein_precip_mp, lh_precip_mp, rhophi_precip_mp, rhokin_precip_mp, rceff, rceff_solid, rceff_cld, rctop, rwtop, tctop, frhoge_af, frhogqv_af, frhoge_rad, qke, gsgam2, gsgam2h, gam2, gam2h, ix, iy, iz, jx, jy, jz, z, zh, GDCLW, GDCFRC, GPREC, CBMFX
+    GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh, GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact, CVW, LHF
+    @end domainDependant
+
+    l = SET_l
+    do iteration = 1, SET_iteration
+       call getTime(t_start_mp)
+       call mp_driver(ADM_gall_in, l, rhog, rhogvx, rhogvy, rhogvz, rhogw, rhoge, rhogq_Lswp, vx, vy, vz, w, unccn, rho, tem, pre, q_Lswp, qd, precip_mp, precip1_mp, precip2_mp, rhoein_precip_mp, lh_precip_mp, rhophi_precip_mp, rhokin_precip_mp, rceff, rceff_solid, rceff_cld, rctop, rwtop, tctop, frhoge_af, frhogqv_af, frhoge_rad, qke, gsgam2, gsgam2h, gam2, gam2h, ix, iy, iz, jx, jy, jz, z, zh, TIME_DTL, TIME_CTIME, GDCLW, GDCFRC, GPREC, CBMFX)
+       call incrementCounter(counter1, t_start_mp)
+    enddo
+    write(0, "(A,F13.5)") "Time measured with HF tooling for mp_driver:", counter1
+  end subroutine physicskernel_microphysics_run
+end module mod_main
+
 !-------------------------------------------------------------------------------
 !
 !+  Program physics kernel driver (cloud microphysics)
@@ -8,14 +88,14 @@ program physicskernel_microphysics
   !
   !++ Used modules
   !
+  use mod_main, only: physicskernel_microphysics_run
   use mod_precision
   use mod_debug
   use mod_precip_transport, only: precip_transport_ini
   use mod_satadjust, only: &
      SATURATION_setup
   use mod_mp_driver, only: &
-     mp_init,  &
-     mp_driver
+     mp_init
   use time_profiling
   use helper_functions
   !-----------------------------------------------------------------------------
@@ -106,7 +186,7 @@ program physicskernel_microphysics
   real(RP), allocatable :: CHECK_GDCFRC           (:,:,:)
   real(RP), allocatable :: CHECK_GPREC            (:,:,:)
 
-  integer :: l, nq, iteration
+  integer :: l, nq
   real(8) :: t_start_main
   !=============================================================================
 
@@ -278,88 +358,79 @@ program physicskernel_microphysics
   write(*,*) "*** Start  kernel"
   call PROF_rapstart('Cloud_Microphysics_kernel')
 
+  write(*,*) '### Before ###'
+   call PROF_valcheck( 'before', 'rhog  ', rhog  (:,:,:) )
+   call PROF_valcheck( 'before', 'rhogvx', rhogvx(:,:,:) )
+   call PROF_valcheck( 'before', 'rhogvy', rhogvy(:,:,:) )
+   call PROF_valcheck( 'before', 'rhogvz', rhogvz(:,:,:) )
+   call PROF_valcheck( 'before', 'rhogw ', rhogw (:,:,:) )
+   call PROF_valcheck( 'before', 'rhoge ', rhoge (:,:,:) )
+   do nq = 1, TRC_VMAX
+      call PROF_valcheck( 'before', TRC_name(nq), rhogq_Lswp(:,:,nq,:) )
+   enddo
 
-  do iteration = 1, SET_iteration
-     write(*,*) '### Before ###'
-     call PROF_valcheck( 'before', 'rhog  ', rhog  (:,:,:) )
-     call PROF_valcheck( 'before', 'rhogvx', rhogvx(:,:,:) )
-     call PROF_valcheck( 'before', 'rhogvy', rhogvy(:,:,:) )
-     call PROF_valcheck( 'before', 'rhogvz', rhogvz(:,:,:) )
-     call PROF_valcheck( 'before', 'rhogw ', rhogw (:,:,:) )
-     call PROF_valcheck( 'before', 'rhoge ', rhoge (:,:,:) )
-     do nq = 1, TRC_VMAX
-        call PROF_valcheck( 'before', TRC_name(nq), rhogq_Lswp(:,:,nq,:) )
-     enddo
+  call physicskernel_microphysics_run( &
+           rhog            (:,:,l),           & ! [INOUT]
+           rhogvx          (:,:,l),           & ! [INOUT]
+           rhogvy          (:,:,l),           & ! [INOUT]
+           rhogvz          (:,:,l),           & ! [INOUT]
+           rhogw           (:,:,l),           & ! [INOUT]
+           rhoge           (:,:,l),           & ! [INOUT]
+           rhogq_Lswp      (:,:,:,l),         & ! [INOUT]
+           vx              (:,:,l),           & ! [IN]
+           vy              (:,:,l),           & ! [IN]
+           vz              (:,:,l),           & ! [IN]
+           w               (:,:,l),           & ! [IN]
+           unccn           (:,:,l),           & ! [IN]
+           rho             (:,:,l),           & ! [INOUT]
+           tem             (:,:,l),           & ! [INOUT]
+           pre             (:,:,l),           & ! [INOUT]
+           q_Lswp          (:,:,:,l),         & ! [INOUT]
+           qd              (:,:,l),           & ! [OUT]
+           precip_mp       (:,ADM_KNONE,l,:), & ! [INOUT]
+           precip1_mp      (:,ADM_KNONE,l,:), & ! [INOUT]
+           precip2_mp      (:,ADM_KNONE,l,:), & ! [INOUT]
+           rhoein_precip_mp(:,ADM_KNONE,l),   & ! [INOUT]
+           lh_precip_mp    (:,ADM_KNONE,l),   & ! [INOUT]
+           rhophi_precip_mp(:,ADM_KNONE,l),   & ! [INOUT]
+           rhokin_precip_mp(:,ADM_KNONE,l),   & ! [INOUT]
+           rceff           (:,:,l),           & ! [OUT]
+           rceff_solid     (:,:,l),           & ! [OUT]
+           rceff_cld       (:,:,l),           & ! [OUT]
+           rctop           (:,:,l),           & ! [OUT]
+           rwtop           (:,:,l),           & ! [OUT]
+           tctop           (:,:,l),           & ! [OUT]
+           frhoge_af       (:,:,l),           & ! [IN]
+           frhogqv_af      (:,:,l),           & ! [IN]
+           frhoge_rad      (:,:,l),           & ! [IN]
+           qke             (:,:,l),           & ! [IN]
+           gsgam2          (:,:,l),           & ! [IN]
+           gsgam2h         (:,:,l),           & ! [IN]
+           gam2            (:,:,l),           & ! [IN]
+           gam2h           (:,:,l),           & ! [IN]
+           ix              (:,l),             & ! [IN]
+           iy              (:,l),             & ! [IN]
+           iz              (:,l),             & ! [IN]
+           jx              (:,l),             & ! [IN]
+           jy              (:,l),             & ! [IN]
+           jz              (:,l),             & ! [IN]
+           z               (:,:,l),           & ! [IN]
+           zh              (:,:,l),           & ! [IN]
+           GDCLW           (:,:,l),           & ! [OUT]
+           GDCFRC          (:,:,l),           & ! [OUT]
+           GPREC           (:,:,l),           & ! [INOUT]
+           CBMFX           (:,:,l)            ) ! [IN])
 
-       call getTime(t_start_main)
-       call mp_driver( ADM_gall_in,                       & ! [IN]
-                       l,                                 & ! [IN]
-                       rhog            (:,:,l),           & ! [INOUT]
-                       rhogvx          (:,:,l),           & ! [INOUT]
-                       rhogvy          (:,:,l),           & ! [INOUT]
-                       rhogvz          (:,:,l),           & ! [INOUT]
-                       rhogw           (:,:,l),           & ! [INOUT]
-                       rhoge           (:,:,l),           & ! [INOUT]
-                       rhogq_Lswp      (:,:,:,l),         & ! [INOUT]
-                       vx              (:,:,l),           & ! [IN]
-                       vy              (:,:,l),           & ! [IN]
-                       vz              (:,:,l),           & ! [IN]
-                       w               (:,:,l),           & ! [IN]
-                       unccn           (:,:,l),           & ! [IN]
-                       rho             (:,:,l),           & ! [INOUT]
-                       tem             (:,:,l),           & ! [INOUT]
-                       pre             (:,:,l),           & ! [INOUT]
-                       q_Lswp          (:,:,:,l),         & ! [INOUT]
-                       qd              (:,:,l),           & ! [OUT]
-                       precip_mp       (:,ADM_KNONE,l,:), & ! [INOUT]
-                       precip1_mp      (:,ADM_KNONE,l,:), & ! [INOUT]
-                       precip2_mp      (:,ADM_KNONE,l,:), & ! [INOUT]
-                       rhoein_precip_mp(:,ADM_KNONE,l),   & ! [INOUT]
-                       lh_precip_mp    (:,ADM_KNONE,l),   & ! [INOUT]
-                       rhophi_precip_mp(:,ADM_KNONE,l),   & ! [INOUT]
-                       rhokin_precip_mp(:,ADM_KNONE,l),   & ! [INOUT]
-                       rceff           (:,:,l),           & ! [OUT]
-                       rceff_solid     (:,:,l),           & ! [OUT]
-                       rceff_cld       (:,:,l),           & ! [OUT]
-                       rctop           (:,:,l),           & ! [OUT]
-                       rwtop           (:,:,l),           & ! [OUT]
-                       tctop           (:,:,l),           & ! [OUT]
-                       frhoge_af       (:,:,l),           & ! [IN]
-                       frhogqv_af      (:,:,l),           & ! [IN]
-                       frhoge_rad      (:,:,l),           & ! [IN]
-                       qke             (:,:,l),           & ! [IN]
-                       gsgam2          (:,:,l),           & ! [IN]
-                       gsgam2h         (:,:,l),           & ! [IN]
-                       gam2            (:,:,l),           & ! [IN]
-                       gam2h           (:,:,l),           & ! [IN]
-                       ix              (:,l),             & ! [IN]
-                       iy              (:,l),             & ! [IN]
-                       iz              (:,l),             & ! [IN]
-                       jx              (:,l),             & ! [IN]
-                       jy              (:,l),             & ! [IN]
-                       jz              (:,l),             & ! [IN]
-                       z               (:,:,l),           & ! [IN]
-                       zh              (:,:,l),           & ! [IN]
-                       TIME_DTL,                          & ! [IN]
-                       TIME_CTIME,                        & ! [IN]
-                       GDCLW           (:,:,l),           & ! [OUT]
-                       GDCFRC          (:,:,l),           & ! [OUT]
-                       GPREC           (:,:,l),           & ! [INOUT]
-                       CBMFX           (:,:,l)            ) ! [IN]
-          call incrementCounter(counter1, t_start_main)
-
-     write(*,*) '### After ###'
-     call PROF_valcheck( 'after', 'rhog  ', rhog  (:,:,:) )
-     call PROF_valcheck( 'after', 'rhogvx', rhogvx(:,:,:) )
-     call PROF_valcheck( 'after', 'rhogvy', rhogvy(:,:,:) )
-     call PROF_valcheck( 'after', 'rhogvz', rhogvz(:,:,:) )
-     call PROF_valcheck( 'after', 'rhogw ', rhogw (:,:,:) )
-     call PROF_valcheck( 'after', 'rhoge ', rhoge (:,:,:) )
-     do nq = 1, TRC_VMAX
-        call PROF_valcheck( 'after', TRC_name(nq), rhogq_Lswp(:,:,nq,:) )
-     enddo
-  enddo
-  write(0, "(A,F13.5)") "Time measured with HF tooling for mp_driver:", counter1
+   write(*,*) '### After ###'
+   call PROF_valcheck( 'after', 'rhog  ', rhog  (:,:,:) )
+   call PROF_valcheck( 'after', 'rhogvx', rhogvx(:,:,:) )
+   call PROF_valcheck( 'after', 'rhogvy', rhogvy(:,:,:) )
+   call PROF_valcheck( 'after', 'rhogvz', rhogvz(:,:,:) )
+   call PROF_valcheck( 'after', 'rhogw ', rhogw (:,:,:) )
+   call PROF_valcheck( 'after', 'rhoge ', rhoge (:,:,:) )
+   do nq = 1, TRC_VMAX
+      call PROF_valcheck( 'after', TRC_name(nq), rhogq_Lswp(:,:,nq,:) )
+   enddo
 
   call PROF_rapend('Cloud_Microphysics_kernel')
   write(*,*) "*** Finish kernel"

@@ -102,8 +102,7 @@ contains
        jx,                 &
        jy,                 &
        jz,                 &
-       dt,                 &
-       precip_trc          )
+       dt)
 !ESC!    use mod_adm, only: &
 !ESC!       kdim => ADM_kall, &
 !ESC!       kmin => ADM_kmin, &
@@ -185,7 +184,7 @@ contains
     real(RP), intent(in)    :: jy                (ijdim)
     real(RP), intent(in)    :: jz                (ijdim)
     real(RP), intent(in)    :: dt
-    real(RP), intent(inout), optional :: precip_trc(ijdim,nqmax) ! [Add] 2012/02/01 T.Seiki
+    ! real(RP), intent(inout), optional :: precip_trc(ijdim,nqmax) ! [Add] 2012/02/01 T.Seiki
 
     real(RP) :: rhogkin       (ijdim,kdim)
     real(RP) :: rhogkin_h     (ijdim,kdim)
