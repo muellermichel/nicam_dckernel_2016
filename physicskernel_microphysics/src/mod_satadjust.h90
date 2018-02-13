@@ -1504,7 +1504,7 @@ contains
     integer  :: ij, k, nq, ite
 
     @domainDependant{attribute(present, autoDom)}
-    rho, Emoist, qsum, tem, q, qd
+    rho, Emoist, qsum, tem, q, qd, CVW
     @end domainDependant
     !---------------------------------------------------------------------------
 
@@ -1681,7 +1681,7 @@ contains
     integer  :: ij, k, nq, ite
 
     @domainDependant{attribute(present, autoDom)}
-    rho, Emoist, qsum, tem, q, qd
+    rho, Emoist, qsum, tem, q, qd, CVW
     @end domainDependant
     !---------------------------------------------------------------------------
 

@@ -302,6 +302,14 @@ module mod_mp_nsw6
   real(RP),               private :: sw_constVti           = 0.0_RP
   real(RP),               private :: CONST_Vti                         ! force constant terminal velocity for ice
 
+  @domainDependant{domName(idx3), domSize(32), attribute(host)}
+  a1_tab, a2_tab
+  @end domainDependant
+
+  @domainDependant{domName(idx4), domSize(10), attribute(host)}
+  coef_a, coef_b
+  @end domainDependant
+
   !-----------------------------------------------------------------------------
 contains
   !-----------------------------------------------------------------------------
@@ -782,7 +790,8 @@ qr_aut_acc_type="KK2000"
     gsgam2, gsgam2h, gam2, gam2h, ix, iy, iz, jx, jy, jz, z
     drhogqv, drhogqc, drhogqi, drhogqr, drhogqs, drhogqg,
     psatl, qsatl, psati, qsati, Nc,
-    a1, a2, ma2
+    a1, a2, ma2,
+    Vt, cva, rgs, rgsh, wk, ml_Pconv, ml_Pconw, ml_Pconi
     @end domainDependant
 
     @domainDependant{attribute(autoDom, present), domName(ij,k), domSize(ijdim,kdim)}
@@ -2008,7 +2017,7 @@ endif
     integer  :: ij, k, nq
 
     @domainDependant{attribute(autoDom, present)}
-    rhog, rhoge, rhogq, rho, tem, pre, q, gsgam2
+    rhog, rhoge, rhogq, rho, tem, pre, q, gsgam2, qd, cva
     @end domainDependant
     !---------------------------------------------------------------------------
 
@@ -2138,7 +2147,7 @@ endif
     integer  :: ij, k
 
     @domainDependant{attribute(autoDom, present)}
-    tem, a1, a2, ma2
+    tem, a1, a2, ma2, a1_tab, a2_tab
     @end domainDependant
     !---------------------------------------------------------------------------
 

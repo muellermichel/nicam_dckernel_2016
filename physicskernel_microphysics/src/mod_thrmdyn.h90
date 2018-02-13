@@ -282,7 +282,7 @@ contains
     integer  :: ij, k, nq
 
     @domainDependant{attribute(autoDom, present)}
-    qd, q, cv
+    qd, q, cv, CVW
     @end domainDependant
     !---------------------------------------------------------------------------
 
@@ -1093,7 +1093,7 @@ contains
     integer  :: ij, k, nq
 
     @domainDependant{attribute(present, autoDom)}
-    ein, rho, q, tem, pre, cv, qd
+    ein, rho, q, tem, pre, cv, qd, CVW
     @end domainDependant
     !---------------------------------------------------------------------------
 
