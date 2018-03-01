@@ -15,7 +15,8 @@ OUTDIR=${HMDIR}/physicskernel_microphysics/run
 mkdir -p ${OUTDIR}
 cd       ${OUTDIR}
 
-ln -svf ${HMDIR}/physicskernel_microphysics/run/main/main_${arch_input} ./physicskernel_microphysics.exe
+# ln -svf ${HMDIR}/physicskernel_microphysics/run/main/main_${arch_input} ./physicskernel_microphysics.exe
+ln -svf ${HMDIR}/physicskernel_microphysics/src/physicskernel_microphysics.exe .
 ln -svf ${HMDIR}/physicskernel_microphysics/data/vgrid94.dat .
 
 ln -svf ${HMDIR}/physicskernel_microphysics/data/snapshot.microphysics.pe000003 .
