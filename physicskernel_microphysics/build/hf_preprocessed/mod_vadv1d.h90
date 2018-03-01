@@ -1,0 +1,144 @@
+
+module mod_vadv1d
+use mod_precision
+use mod_debug
+implicit none
+private
+public :: vadv1d_prep
+public :: vadv1d_getflux_new
+contains
+@scheme{name(REDUCTION_SUPPORT)}
+subroutine vadv1d_prep( ijdim, kdim, kmin, kmax, dz, zh, wp, zdis, kcell, kcell_max, kcell_min, dt         )
+implicit none
+integer,  intent(in)  :: ijdim
+integer,  intent(in)  :: kdim
+integer,  intent(in)  :: kmin
+integer,  intent(in)  :: kmax
+real(RP), intent(in)  :: dz       (kdim)
+real(RP), intent(in)  :: zh       (kdim)
+real(RP), intent(in)  :: wp       (ijdim,kdim)
+real(RP), intent(out) :: zdis     (ijdim,kdim) 
+integer,  intent(out) :: kcell    (ijdim,kdim)
+integer,  intent(out) :: kcell_max(kdim)
+integer,  intent(out) :: kcell_min(kdim)
+real(RP), intent(in)  :: dt
+real(RP) :: wh(ijdim,kdim)
+real(RP) :: zzmax, zzmin
+integer  :: ij, k, k2, dummy
+@domainDependant{attribute(present, autoDom)}
+dz, zh, wp, zdis, kcell, kcell_max, kcell_min, wh
+@end domainDependant
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax)}
+wh(ij,k) = 0.5_RP * ( wp(ij,k-1)+wp(ij,k) )
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+wh(ij,kmin  ) = wp(ij,kmin  )
+wh(ij,kmin-1) = wp(ij,kmin-1)
+wh(ij,kmax+1) = wp(ij,kmax  )
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax)}
+zdis(ij,k) = dt    * wh(ij,k) - dt**2 * wh(ij,k) *     ( wh(ij,k+1)-wh(ij,k-1) ) / ( dz(k-1)+dz(k) ) / 2.0_RP + dt**3 * wh(ij,k) * ( ( ( wh(ij,k+1)-wh(ij,k-1) ) / ( dz(k-1)+dz(k) ) )**2 + wh(ij,k) * ( ( ( wh(ij,k+1)-wh(ij,k) ) / dz(k) - ( wh(ij,k)-wh(ij,k-1) ) / dz(k-1) ) / ( dz(k-1)+dz(k) ) * 2.0_RP ) ) / 6.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+zdis(ij,kmin-1) = 0.0_RP
+zdis(ij,kmin  ) = dt    * wh(ij,kmin  ) - dt**2 * wh(ij,kmin  ) * ( wh(ij,kmin+1)-wh(ij,kmin) ) / dz(kmin) / 2.0_RP
+zdis(ij,kmax+1) = dt    * wh(ij,kmax+1) - dt**2 * wh(ij,kmax+1) * ( wh(ij,kmax+1)-wh(ij,kmax) ) / dz(kmax) / 2.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+kcell(ij,k)  = k
+kcell_min(k) = k
+kcell_max(k) = k
+@end parallelRegion
+do k = kmin, kmax
+@parallelRegion{domName(ij), domSize(ijdim), reduction(max:zzmax)}
+zzmax = max(zzmax, zdis(ij,k) )
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim), reduction(min:zzmin)}
+zzmin = min(zzmin, zdis(ij,k))
+@end parallelRegion
+if ( zzmax > 0.0_RP ) then
+@parallelRegion{domName(dummy), domSize(1)}
+do k2 = k, kmin, -1
+if (       zh(k2)   <= zh(k)-zzmax .AND. zh(k2+1) >  zh(k)-zzmax ) then
+kcell_min(k) = k2
+exit
+endif
+enddo
+@end parallelRegion
+endif
+if ( zzmin < 0.0_RP ) then
+@parallelRegion{domName(dummy), domSize(1)}
+do k2 = k, kmax
+if (       zh(k2)   <= zh(k)-zzmin .AND. zh(k2+1) >  zh(k)-zzmin ) then
+kcell_max(k) = k2
+exit
+endif
+enddo
+@end parallelRegion
+endif
+enddo
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+if (       kcell_min(k) == k .AND. kcell_max(k) == k ) then
+kcell(ij,k) = k
+else
+kcell(ij,k) = 0
+do k2 = kcell_min(k), kcell_max(k)
+kcell(ij,k) = max ( kcell(ij,k), int( k2  * sign ( 1.0_RP, (zh(k)-zdis(ij,k))-zh(k2)   ) * sign ( 1.0_RP, zh(k2+1)-(zh(k)-zdis(ij,k)) ) ) )
+enddo
+endif
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+if ( kcell(ij,k) == 0 ) then
+kcell(ij,k) = kmin
+endif
+if ( kcell(ij,k) == kmax+1 ) then
+kcell(ij,k) = kmax
+endif
+@end parallelRegion
+return
+end subroutine vadv1d_prep
+@end scheme
+subroutine vadv1d_getflux_new( ijdim, kdim, kmin, kmax, dz, rhof, zdis0, kcell, kcell_max, kcell_min, frhof      )
+use mod_debug, only : CONST_EPS
+implicit none
+integer,  intent(in)  :: ijdim
+integer,  intent(in)  :: kdim
+integer,  intent(in)  :: kmin
+integer,  intent(in)  :: kmax
+real(RP), intent(in)  :: dz       (kdim)
+real(RP), intent(in)  :: rhof     (ijdim,kdim)
+real(RP), intent(in)  :: zdis0    (ijdim,kdim) 
+integer,  intent(in)  :: kcell    (ijdim,kdim)
+integer,  intent(in)  :: kcell_max(kdim)
+integer,  intent(in)  :: kcell_min(kdim)
+real(RP), intent(out) :: frhof    (ijdim,kdim)
+real(RP) :: zdis(ijdim,kdim)
+real(RP) :: fact
+integer  :: ij, k, k2
+@domainDependant{attribute(present, autoDom)}
+dz, rhof, zdis0, kcell, kcell_max, kcell_min, frhof, zdis
+@end domainDependant
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+frhof(ij,k) = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+do k = kmin, kmax
+if (       kcell_min(k) == k .AND. kcell_max(k) == k ) then
+zdis(ij,k) = zdis0(ij,k)
+else
+do k2 = kcell_min(k), kcell_max(k)
+fact = dz(k2) * 0.25_RP * ( ( sign(1,k2-(kcell(ij,k)+1)) + 1.0_RP ) * ( sign(1,(k          -1)-k2) + 1.0_RP ) - ( sign(1,k2-k              ) + 1.0_RP ) * ( sign(1,(kcell(ij,k)-1)-k2) + 1.0_RP ) )
+frhof(ij,k) = frhof(ij,k) + rhof(ij,k2) * fact
+zdis (ij,k) = zdis0(ij,k) - fact
+enddo
+endif
+frhof(ij,k) = frhof(ij,k) + rhof(ij,kcell(ij,k)) * zdis(ij,k)
+enddo
+do k  = 1, kdim
+frhof(ij,k) = frhof(ij,k) * ( 0.5_RP + sign(0.5_RP, abs(frhof(ij,k)) - CONST_EPS ) ) 
+enddo
+@end parallelRegion
+return
+end subroutine vadv1d_getflux_new
+end module mod_vadv1d
+

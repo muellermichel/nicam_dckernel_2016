@@ -1,0 +1,228 @@
+
+module mod_mp_driver
+use mod_debug
+use mod_precision
+implicit none
+private
+public :: mp_init
+public :: mp_driver
+logical, private :: opt_radius_explicit = .false.
+logical, private :: opt_volume_explicit = .false.
+real(RP), private :: TSICE = 273.15_RP 
+real(RP), private :: TWICE = 258.15_RP 
+contains
+@scheme{name(HOST_ONLY)}
+subroutine mp_init( MP_TYPE_in )
+use mod_mp_nsw6, only: mp_nsw6_init
+implicit none
+character(len=*), intent(in) :: MP_TYPE_in
+namelist / nm_mp_driver_init / opt_radius_explicit, opt_volume_explicit, TSICE, TWICE
+integer  :: ierr
+select case(MP_TYPE)
+case('NSW6')
+write(IO_FID_LOG,*) '*** microphysics type = NSW6'
+call mp_nsw6_init
+case default
+write(*,*) 'xxx Not appropriate type. MP_TYPE = ', trim(MP_TYPE)
+call ADM_proc_stop
+end select
+return
+end subroutine mp_init
+@end scheme
+subroutine mp_driver( ijdim, l_region, rhog, rhogvx, rhogvy, rhogvz, rhogw, rhoge, rhogq, vx, vy, vz, w, unccn, rho, tem, pre, q, qd, precip, ISO1_precip, ISO2_precip, precip_rhoe, precip_lh_heat, precip_rhophi, precip_rhokin, re_liquid, re_solid, re_cld, rctop, rwtop, tctop, frhoge_af, frhogqv_af, frhoge_rad, rhogqke, gsgam2, gsgam2h, gam2, gam2h, ix, iy, iz, jx, jy, jz, z, zh, dt, ct, GDCLW, GDCFRC, GPREC, CBMFX           )
+use mod_mp_nsw6, only: mp_nsw6
+use mod_debug, only: kdim, CONST_UNDEF, nqmax
+implicit none
+integer,  intent(in)    :: ijdim
+integer,  intent(in)    :: l_region
+real(RP), intent(inout) :: rhog          (ijdim,kdim)
+real(RP), intent(inout) :: rhogvx        (ijdim,kdim)
+real(RP), intent(inout) :: rhogvy        (ijdim,kdim)
+real(RP), intent(inout) :: rhogvz        (ijdim,kdim)
+real(RP), intent(inout) :: rhogw         (ijdim,kdim)
+real(RP), intent(inout) :: rhoge         (ijdim,kdim)
+real(RP), intent(inout) :: rhogq         (ijdim,kdim,nqmax)
+real(RP), intent(in)    :: vx            (ijdim,kdim)
+real(RP), intent(in)    :: vy            (ijdim,kdim)
+real(RP), intent(in)    :: vz            (ijdim,kdim)
+real(RP), intent(in)    :: w             (ijdim,kdim)
+real(RP), intent(in)    :: unccn         (ijdim,kdim) 
+real(RP), intent(inout) :: rho           (ijdim,kdim)
+real(RP), intent(inout) :: tem           (ijdim,kdim)
+real(RP), intent(inout) :: pre           (ijdim,kdim)
+real(RP), intent(inout) :: q             (ijdim,kdim,nqmax)
+real(RP), intent(out)   :: qd            (ijdim,kdim)
+real(RP), intent(inout) :: precip        (ijdim,2)
+real(RP), intent(inout) :: ISO1_precip   (ijdim,2)    
+real(RP), intent(inout) :: ISO2_precip   (ijdim,2)    
+real(RP), intent(inout) :: precip_rhoe   (ijdim)
+real(RP), intent(inout) :: precip_lh_heat(ijdim)
+real(RP), intent(inout) :: precip_rhophi (ijdim)
+real(RP), intent(inout) :: precip_rhokin (ijdim)
+real(RP), intent(out)   :: re_liquid     (ijdim,kdim) 
+real(RP), intent(out)   :: re_solid      (ijdim,kdim) 
+real(RP), intent(out)   :: re_cld        (ijdim,kdim) 
+real(RP), intent(out)   :: rctop         (ijdim,1)    
+real(RP), intent(out)   :: rwtop         (ijdim,1)    
+real(RP), intent(out)   :: tctop         (ijdim,1)    
+real(RP), intent(in)    :: frhoge_af     (ijdim,kdim)
+real(RP), intent(in)    :: frhogqv_af    (ijdim,kdim)
+real(RP), intent(in)    :: frhoge_rad    (ijdim,kdim) 
+real(RP), intent(in)    :: rhogqke       (ijdim,kdim) 
+real(RP), intent(in)    :: gsgam2        (ijdim,kdim)
+real(RP), intent(in)    :: gsgam2h       (ijdim,kdim)
+real(RP), intent(in)    :: gam2          (ijdim,kdim)
+real(RP), intent(in)    :: gam2h         (ijdim,kdim)
+real(RP), intent(in)    :: ix            (ijdim)
+real(RP), intent(in)    :: iy            (ijdim)
+real(RP), intent(in)    :: iz            (ijdim)
+real(RP), intent(in)    :: jx            (ijdim)
+real(RP), intent(in)    :: jy            (ijdim)
+real(RP), intent(in)    :: jz            (ijdim)
+real(RP), intent(in)    :: z             (ijdim,kdim)
+real(RP), intent(in)    :: zh            (ijdim,kdim)
+real(RP), intent(in)    :: dt
+real(RP), intent(in)    :: ct
+real(RP), intent(out)   :: GDCLW         (ijdim,kdim)
+real(RP), intent(out)   :: GDCFRC        (ijdim,kdim)
+real(RP), intent(inout) :: GPREC         (ijdim,kdim) 
+real(RP), intent(in)    :: CBMFX         (ijdim,kdim)
+real(RP) :: precip_trc        (ijdim,nqmax)
+real(RP) :: precip_sum        (ijdim,2)
+real(RP) :: ISO1_precip_sum   (ijdim,2)
+real(RP) :: ISO2_precip_sum   (ijdim,2)
+real(RP) :: precip_rhoe_sum   (ijdim)
+real(RP) :: precip_lh_heat_sum(ijdim)
+real(RP) :: precip_rhophi_sum (ijdim)
+real(RP) :: precip_rhokin_sum (ijdim)
+real(RP) :: precip_trc_sum    (ijdim,nqmax)
+real(RP) :: GDCLW_sum         (ijdim,kdim)
+real(RP) :: GDCFRC_sum        (ijdim,kdim)
+real(RP) :: GPREC_sum         (ijdim,kdim)
+real(RP) :: re_rain           (ijdim,kdim) 
+real(RP) :: re_ice            (ijdim,kdim) 
+real(RP) :: re_snow           (ijdim,kdim) 
+real(RP) :: re_graupel        (ijdim,kdim) 
+real(RP) :: rctop_cld         (ijdim,1)    
+real(RP) :: rwtop_cld         (ijdim,1)    
+real(RP) :: tctop_cld         (ijdim,1)    
+real(RP) :: qke               (ijdim,kdim)
+real(RP) :: fraction_mp 
+real(RP) :: dt_mp
+integer  :: k ,ij, m, idx1, nq
+@domainDependant{attribute(autoDom, present)}
+rhog, rhogvx, rhogvy, rhogvz, rhogw, rhoge, rhogq, vx, vy, vz, w,
+unccn, rho, tem, pre, q, qd, precip, ISO1_precip, ISO2_precip,
+precip_rhoe, precip_lh_heat, precip_rhophi, precip_rhokin,
+re_liquid, re_solid, re_cld, rctop, rwtop, tctop,
+frhoge_af, frhogqv_af, frhoge_rad, rhogqke,
+gsgam2, gsgam2h, gam2, gam2h, ix, iy, iz, jx, jy, jz, z, zh
+GDCLW, GDCFRC, GPREC, CBMFX,
+precip_trc, precip_sum, ISO1_precip_sum, ISO2_precip_sum,
+precip_rhoe_sum, precip_lh_heat_sum, precip_rhophi_sum, precip_rhokin_sum, precip_trc_sum,
+GDCLW_sum, GDCFRC_sum, GPREC_sum,
+re_rain, re_ice, re_snow, re_graupel, rctop_cld, rwtop_cld, tctop_cld, qke
+@end domainDependant
+fraction_mp = 1.0_RP / real(MP_DIV_NUM,kind=8)
+dt_mp       = dt * fraction_mp
+@parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
+precip_sum        (ij,idx1) = 0.0_RP
+ISO1_precip_sum   (ij,idx1) = 0.0_RP
+ISO2_precip_sum   (ij,idx1) = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+precip_rhoe_sum   (ij)   = 0.0_RP
+precip_lh_heat_sum(ij)   = 0.0_RP
+precip_rhophi_sum (ij)   = 0.0_RP
+precip_rhokin_sum (ij)   = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij,nq), domSize(ijdim,nqmax)}
+precip_trc_sum    (ij,nq) = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+GPREC_sum         (ij,k) = 0.0_RP
+GDCLW_sum         (ij,k) = 0.0_RP
+GDCFRC_sum        (ij,k) = 0.0_RP
+@end parallelRegion
+if ( MP_TYPE /= 'NDW6') then
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+re_rain   (ij,k) = CONST_UNDEF
+re_ice    (ij,k) = CONST_UNDEF
+re_snow   (ij,k) = CONST_UNDEF
+re_graupel(ij,k) = CONST_UNDEF
+@end parallelRegion
+endif
+do m = 1, MP_DIV_NUM
+@parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
+precip        (ij,idx1) = 0.0_RP
+ISO1_precip   (ij,idx1) = 0.0_RP
+ISO2_precip   (ij,idx1) = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+precip_rhoe   (ij)   = 0.0_RP
+precip_lh_heat(ij)   = 0.0_RP
+precip_rhophi (ij)   = 0.0_RP
+precip_rhokin (ij)   = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij,nq), domSize(ijdim,nqmax)}
+precip_trc    (ij,nq) = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+GPREC         (ij,k) = 0.0_RP
+GDCLW         (ij,k) = 0.0_RP
+GDCFRC        (ij,k) = 0.0_RP
+@end parallelRegion
+if ( MP_TYPE == 'NONE' ) then
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+re_liquid(ij,k) = 10.E-6_RP 
+re_solid (ij,k) = 20.E-6_RP 
+@end parallelRegion
+elseif( MP_TYPE == 'NSW6' ) then
+call mp_nsw6( ijdim, l_region, rhog          (:,:), rhogvx        (:,:), rhogvy        (:,:), rhogvz        (:,:), rhogw         (:,:), rhoge         (:,:), rhogq         (:,:,:), vx            (:,:), vy            (:,:), vz            (:,:), w             (:,:), unccn         (:,:), rho           (:,:), tem           (:,:), pre           (:,:), q             (:,:,:), qd            (:,:), precip        (:,:), precip_rhoe   (:), precip_lh_heat(:), precip_rhophi (:), precip_rhokin (:), GPREC         (:,:), re_liquid     (:,:), rctop         (:,:), rwtop         (:,:), tctop         (:,:), re_cld        (:,:), rctop_cld     (:,:), rwtop_cld     (:,:), tctop_cld     (:,:), gsgam2        (:,:), gsgam2h       (:,:), gam2          (:,:), gam2h         (:,:), ix            (:), iy            (:), iz            (:), jx            (:), jy            (:), jz            (:), z             (:,:), dt_mp                  ) 
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+re_solid(ij,k) = 20.E-6_RP 
+@end parallelRegion
+endif
+@parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
+precip_sum        (ij,idx1) = precip_sum        (ij,idx1) + precip        (ij,idx1)
+ISO1_precip_sum   (ij,idx1) = ISO1_precip_sum   (ij,idx1) + ISO1_precip   (ij,idx1)
+ISO2_precip_sum   (ij,idx1) = ISO2_precip_sum   (ij,idx1) + ISO2_precip   (ij,idx1)
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+precip_rhoe_sum   (ij)   = precip_rhoe_sum   (ij)   + precip_rhoe   (ij)
+precip_lh_heat_sum(ij)   = precip_lh_heat_sum(ij)   + precip_lh_heat(ij)
+precip_rhophi_sum (ij)   = precip_rhophi_sum (ij)   + precip_rhophi (ij)
+precip_rhokin_sum (ij)   = precip_rhokin_sum (ij)   + precip_rhokin (ij)
+@end parallelRegion
+@parallelRegion{domName(ij,nq), domSize(ijdim,nqmax)}
+precip_trc_sum    (ij,nq) = precip_trc_sum    (ij,nq) + precip_trc    (ij,nq)
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+GDCLW_sum         (ij,k) = GDCLW_sum         (ij,k) + GDCLW         (ij,k)
+GDCFRC_sum        (ij,k) = GDCFRC_sum        (ij,k) + GDCFRC        (ij,k)
+GPREC_sum         (ij,k) = GPREC_sum         (ij,k) + GPREC         (ij,k)
+@end parallelRegion
+enddo
+@parallelRegion{domName(ij,idx1), domSize(ijdim,2)}
+precip        (ij,idx1) = precip_sum        (ij,idx1) * fraction_mp
+ISO1_precip   (ij,idx1) = ISO1_precip_sum   (ij,idx1) * fraction_mp
+ISO2_precip   (ij,idx1) = ISO2_precip_sum   (ij,idx1) * fraction_mp
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+precip_rhoe   (ij)   = precip_rhoe_sum   (ij)   * fraction_mp
+precip_lh_heat(ij)   = precip_lh_heat_sum(ij)   * fraction_mp
+precip_rhophi (ij)   = precip_rhophi_sum (ij)   * fraction_mp
+precip_rhokin (ij)   = precip_rhokin_sum (ij)   * fraction_mp
+@end parallelRegion
+@parallelRegion{domName(ij,nq), domSize(ijdim,nqmax)}
+precip_trc    (ij,nq) = precip_trc_sum    (ij,nq) * fraction_mp
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+GDCLW         (ij,k) = GDCLW_sum         (ij,k) * fraction_mp
+GDCFRC        (ij,k) = GDCFRC_sum        (ij,k) * fraction_mp
+GPREC         (ij,k) = GPREC_sum         (ij,k) * fraction_mp
+@end parallelRegion
+return
+end subroutine mp_driver
+end module mod_mp_driver
+

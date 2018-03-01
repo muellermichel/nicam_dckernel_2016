@@ -28,3 +28,4 @@
 *.app
 
 *.pe000000
+sftp-config.json

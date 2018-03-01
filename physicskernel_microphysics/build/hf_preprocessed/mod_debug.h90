@@ -1,0 +1,665 @@
+
+module mod_debug
+use mpi
+use mod_precision
+implicit none
+private
+integer,  public, parameter :: H_SHORT      = 32
+integer,  public, parameter :: H_LONG       = 1024
+integer,  public            :: IO_FID_LOG   = 6
+integer,  public, parameter :: ADM_prc_all  = 1
+integer,  public, parameter :: IO_FREAD = 0
+integer,  public, parameter :: ADM_KNONE    = 1
+integer,  public            :: ADM_gall_in_orig = 16641 
+integer,  public            :: ADM_gall_in      = 16641 
+integer,  public            :: ADM_vlayer   = 94
+integer,  public            :: ADM_kall     = 96   
+integer,  public            :: ADM_kmin     = 2
+integer,  public            :: ADM_kmax     = 95
+integer,  public            :: ADM_lall     = 1
+integer,  public            :: TRC_VMAX     = 6
+integer,  public            :: kdim         = 96
+integer,  public            :: kmin         = 2
+integer,  public            :: kmax         = 95
+integer,  public            :: knone        = 1
+integer,  public            :: nqmax        = 6
+real(RP), public            :: TIME_DTL     = 6.0_RP 
+real(RP), public            :: TIME_CTIME   = 0.0_RP
+integer,  public            :: TIME_CSTEP   = 49
+integer,  public            :: SET_l        = 1
+integer,  public            :: SET_rgnid    = 4
+real(RP), public            :: CONST_PI     = 3.141592653589793_RP 
+real(RP), public            :: CONST_EPS    = 2.220446E-16_RP      
+real(RP), public, parameter :: CONST_UNDEF  = -9.9999E+30_RP
+real(RP), public, parameter :: CONST_GRAV   =   9.79764_RP
+real(RP), public, parameter :: CONST_STB    =   5.670373E-8_RP
+real(RP), public, parameter :: CONST_Rdry   =  287.04_RP
+real(RP), public, parameter :: CONST_CPdry  = 1004.64_RP
+real(RP), public, parameter :: CONST_CVdry  =  717.56_RP
+real(RP), public, parameter :: CONST_Rvap   =  461.46_RP
+real(RP), public, parameter :: CONST_CPvap  = 1846.0_RP
+real(RP), public, parameter :: CONST_CVvap  = 1384.54_RP
+real(RP), public, parameter :: CONST_CL     = 4218.0_RP
+real(RP), public, parameter :: CONST_CI     = 2006.0_RP
+real(RP), public, parameter :: CONST_KAPPA  = 0.2857256619550070_RP
+real(RP), public, parameter :: CONST_EPSvap = 0.6219718309859156_RP
+real(RP), public, parameter :: CONST_PSAT0  =     610.7_RP
+real(RP), public, parameter :: CONST_LHV0   = 2501000.0_RP
+real(RP), public, parameter :: CONST_LHS0   = 2834000.0_RP
+real(RP), public, parameter :: CONST_LHF0   =  333000.0_RP
+real(RP), public, parameter :: CONST_LHV00  = 3148911.8_RP
+real(RP), public, parameter :: CONST_LHS00  = 2877704.0_RP
+real(RP), public, parameter :: CONST_LHF00  = -271207.8_RP
+real(RP), public, parameter :: CONST_Pstd   =  101325.0_RP
+real(RP), public, parameter :: CONST_PRE00  =  100000.0_RP
+real(RP), public, parameter :: CONST_Tstd   =    288.15_RP
+real(RP), public, parameter :: CONST_TEM00  =    273.15_RP
+real(RP), public, parameter :: CONST_TMELT  =    273.15_RP
+real(RP), public, parameter :: CONST_DWATR  =    1000.0_RP
+real(RP), public, parameter :: CONST_DICE   =     916.8_RP
+real(RP), public            :: CONST_LHV    = CONST_LHV0
+real(RP), public            :: CONST_LHS    = CONST_LHS0
+real(RP), public            :: CONST_LHF    = CONST_LHF0
+real(RP), public            :: PI    = 3.141592653589793_RP 
+real(RP), public            :: EPS   = 2.220446E-16_RP      
+real(RP), public, parameter :: UNDEF = CONST_UNDEF
+real(RP), public, parameter :: GRAV  = CONST_GRAV
+real(RP), public, parameter :: Rdry  = CONST_Rdry
+real(RP), public, parameter :: Rvap  = CONST_Rvap
+real(RP), public, parameter :: CL    = CONST_CL
+real(RP), public            :: LHV   = CONST_LHV0
+real(RP), public            :: LHS   = CONST_LHS0
+real(RP), public            :: LHF   = CONST_LHF0
+real(RP), public, parameter :: rho_w = CONST_DWATR
+real(RP), public, parameter :: rhow  = CONST_DWATR
+real(RP), public, parameter :: DWATR = CONST_DWATR
+real(RP), public, parameter :: DICE  = CONST_DICE
+real(RP), public, parameter :: Pstd  = CONST_Pstd
+real(RP), public, parameter :: Tstd  = CONST_Tstd
+real(RP), public, parameter :: TEM00 = CONST_TEM00
+character(len=H_LONG), public :: vgrid_fname ='./vgrid94.dat'
+real(RP), public, allocatable :: GRD_gz   (:)
+real(RP), public, allocatable :: GRD_gzh  (:)
+real(RP), public, allocatable :: GRD_dgz  (:)
+real(RP), public, allocatable :: GRD_dgzh (:)
+real(RP), public, allocatable :: GRD_rdgz (:)
+real(RP), public, allocatable :: GRD_rdgzh(:)
+real(RP), public, allocatable :: GRD_afact(:)
+real(RP), public, allocatable :: GRD_bfact(:)
+real(RP), public, allocatable :: GRD_cfact(:)
+real(RP), public, allocatable :: GRD_dfact(:)
+character(len=H_SHORT), public, parameter :: EIN_TYPE            = 'SIMPLE'
+character(len=H_SHORT), public, parameter :: RAIN_TYPE           = 'COLD'
+character(len=H_SHORT), public, parameter :: MP_TYPE             = 'NSW6'
+integer,                public, parameter :: MP_DIV_NUM          = 1
+logical,                public, parameter :: opt_2moment_water   = .false.
+logical,                public, parameter :: ISOTOPE             = .false.
+logical,                public, parameter :: opt_offline_aerosol = .false.
+logical,                public, parameter :: opt_aerosol_forcing = .false.
+character(len=H_SHORT), public, parameter :: PRCIP_TRN_ECORRECT  = 'KIN2EIN'
+character(len=H_SHORT), public, parameter :: RD_TYPE             = 'MSTRNX'
+character(len=H_SHORT), public, parameter :: AE_TYPE             = 'NONE'
+integer,                public, parameter :: KAPCL               = 7
+integer,                public, parameter :: NCRF                = 2
+integer,                public, parameter :: NRBND               = 3
+integer,                public, parameter :: NRBND_VIS           = 1
+integer,                public, parameter :: NRBND_NIR           = 2
+integer,                public, parameter :: NRBND_IR            = 3
+integer,                public, parameter :: NRDIR               = 2
+integer,                public, parameter :: NRDIR_DIRECT        = 1
+integer,                public, parameter :: NRDIR_DIFFUSE       = 2
+integer,                public, parameter :: NTAU                = 7
+integer,                public, parameter :: NPRES               = 7
+integer,                public, parameter :: HYDRO_MAX           = 7
+integer, public :: NQW_STR = 2
+integer, public :: NQW_END = 6
+integer, public :: I_QV =  1
+integer, public :: I_QC =  2
+integer, public :: I_QR =  3
+integer, public :: I_QI =  4
+integer, public :: I_QS =  5
+integer, public :: I_QG =  6
+integer, public :: I_QH =  7
+integer, public :: I_NC =  7
+integer, public :: I_NR =  8
+integer, public :: I_NI =  9
+integer, public :: I_NS = 10
+integer, public :: I_NG = 11
+character(len=16), public :: TRC_name(6) = (/ 'QV', 'QC', 'QR', 'QI', 'QS', 'QG'  /)
+real(RP), public :: CVW(6) = (/ CONST_CVdry, CONST_CVdry, CONST_CVdry, CONST_CVdry, CONST_CVdry, CONST_CVdry  /)
+real(RP), public :: CPW(6) = (/ CONST_CPdry, CONST_CVdry, CONST_CVdry, CONST_CVdry, CONST_CVdry, CONST_CVdry  /)
+integer, public :: SET_iteration = 1
+logical, public :: SET_check     = .true.
+public :: PROF_setup
+public :: PROF_setprefx
+public :: PROF_rapstart
+public :: PROF_rapend
+public :: PROF_rapreport
+public :: PROF_valcheck
+interface PROF_valcheck
+module procedure PROF_valcheck_SP_1D
+module procedure PROF_valcheck_SP_2D
+module procedure PROF_valcheck_SP_3D
+module procedure PROF_valcheck_SP_4D
+module procedure PROF_valcheck_SP_5D
+module procedure PROF_valcheck_SP_6D
+module procedure PROF_valcheck_DP_1D
+module procedure PROF_valcheck_DP_2D
+module procedure PROF_valcheck_DP_3D
+module procedure PROF_valcheck_DP_4D
+module procedure PROF_valcheck_DP_5D
+module procedure PROF_valcheck_DP_6D
+end interface PROF_valcheck
+public :: MISC_make_idstr        
+public :: IO_get_available_fid 
+public :: MISC_gammafunc         
+public :: ADM_proc_stop
+public :: ADM_MPItime
+public :: GRD_setup
+public :: GRD_input_vgrid
+public :: cnvvar_rhogkin_in
+integer,             public :: EX_STEP = 49
+integer,             public :: EX_rgnid
+integer,             public :: EX_fid
+integer,             public :: EX_err
+character(len=1024), public :: EX_fname
+private :: get_rapid
+integer,                  private, parameter :: PROF_rapnlimit = 300
+character(len=H_SHORT),   private            :: PROF_prefix    = ''
+integer,                  private            :: PROF_rapnmax   = 0
+character(len=H_SHORT*2), private            :: PROF_rapname (PROF_rapnlimit)
+integer,                  private            :: PROF_grpnmax   = 0
+character(len=H_SHORT),   private            :: PROF_grpname (PROF_rapnlimit)
+integer,                  private            :: PROF_grpid   (PROF_rapnlimit)
+real(DP),                 private            :: PROF_raptstr (PROF_rapnlimit)
+real(DP),                 private            :: PROF_rapttot (PROF_rapnlimit)
+integer,                  private            :: PROF_rapnstr (PROF_rapnlimit)
+integer,                  private            :: PROF_rapnend (PROF_rapnlimit)
+integer,                  private            :: PROF_raplevel(PROF_rapnlimit)
+integer,                  private, parameter :: PROF_default_rap_level = 2
+integer,                  private            :: PROF_rap_level         = 2
+logical,                  private            :: PROF_mpi_barrier       = .false.
+character(len=7),         private            :: PROF_header
+character(len=16),        private            :: PROF_item
+real(DP),                 private            :: PROF_max
+real(DP),                 private            :: PROF_min
+real(DP),                 private            :: PROF_sum
+integer, private, parameter :: min_fid = 7
+integer, private, parameter :: max_fid = 99
+logical, private, parameter :: NSTR_ZERO_START = .true.
+integer, private            :: NSTR_MAX_DIGIT  = 5
+@domainDependant{domName(k), domSize(kdim), attribute(host)}
+GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh, GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact
+@end domainDependant
+@domainDependant{domName(idx2), domSize(6), attribute(host)}
+CVW
+@end domainDependant
+contains
+@scheme{name(HOST_ONLY)}
+subroutine PROF_setup
+implicit none
+namelist / PARAM_PROF / PROF_rap_level, PROF_mpi_barrier
+integer :: ierr
+write(IO_FID_LOG,*)
+write(IO_FID_LOG,*) '++++++ Module[PROF] / Categ[COMMON] / Origin[SCALElib]'
+PROF_prefix = ''
+return
+end subroutine PROF_setup
+subroutine PROF_setprefx( prefxname )
+implicit none
+character(len=*), intent(in) :: prefxname 
+if ( prefxname == '' ) then 
+PROF_prefix = ''
+else
+PROF_prefix = trim(prefxname)//'_'
+endif
+return
+end subroutine PROF_setprefx
+subroutine PROF_rapstart( rapname_base, level )
+implicit none
+character(len=*), intent(in) :: rapname_base    
+integer,          intent(in), optional :: level 
+character(len=H_SHORT*2) :: rapname             
+integer                  :: id, level_
+if ( present(level) ) then
+level_ = level
+else
+level_ = PROF_default_rap_level
+endif
+if( level_ > PROF_rap_level ) return
+rapname = trim(PROF_prefix)//trim(rapname_base)
+id = get_rapid( rapname, level_ )
+PROF_raptstr(id) = ADM_MPItime()
+PROF_rapnstr(id) = PROF_rapnstr(id) + 1
+#ifdef _FAPP_
+call FAPP_START( trim(rapname), id, level_ )
+#endif
+#ifdef _FINEPA_
+call START_COLLECTION( trim(rapname) )
+#endif
+return
+end subroutine PROF_rapstart
+subroutine PROF_rapend( rapname_base, level )
+implicit none
+character(len=*), intent(in) :: rapname_base    
+integer,          intent(in), optional :: level 
+character(len=H_SHORT*2) :: rapname             
+integer                  :: id, level_
+if ( present(level) ) then
+if( level > PROF_rap_level ) return
+endif
+rapname = trim(PROF_prefix)//trim(rapname_base)
+id = get_rapid( rapname, level_ )
+if( level_ > PROF_rap_level ) return
+PROF_rapttot(id) = PROF_rapttot(id) + ( ADM_MPItime()-PROF_raptstr(id) )
+PROF_rapnend(id) = PROF_rapnend(id) + 1
+#ifdef _FINEPA_
+call STOP_COLLECTION( trim(rapname) )
+#endif
+#ifdef _FAPP_
+call FAPP_STOP( trim(rapname), id, level_ )
+#endif
+return
+end subroutine PROF_rapend
+subroutine PROF_rapreport
+implicit none
+real(DP) :: avgvar(PROF_rapnlimit)
+real(DP) :: maxvar(PROF_rapnlimit)
+real(DP) :: minvar(PROF_rapnlimit)
+integer  :: maxidx(PROF_rapnlimit)
+integer  :: minidx(PROF_rapnlimit)
+integer :: id, gid
+integer :: fid
+do id = 1, PROF_rapnmax
+if ( PROF_rapnstr(id) /= PROF_rapnend(id) ) then
+write(*,*) '*** Mismatch Report',id,PROF_rapname(id),PROF_rapnstr(id),PROF_rapnend(id)
+endif
+enddo
+write(IO_FID_LOG,*)
+write(IO_FID_LOG,*) '*** Computational Time Report'
+write(IO_FID_LOG,*) '*** Rap level is ', PROF_rap_level
+do gid = 1, PROF_rapnmax
+do id  = 1, PROF_rapnmax
+if (       PROF_raplevel(id) <= PROF_rap_level .AND. PROF_grpid(id)    == gid            ) then
+write(IO_FID_LOG,'(1x,A,I3.3,A,A,A,F10.3,A,I9)') '*** ID=',id,' : ',PROF_rapname(id),' T=',PROF_rapttot(id),' N=',PROF_rapnstr(id)
+endif
+enddo
+enddo
+return
+end subroutine PROF_rapreport
+function get_rapid( rapname, level ) result(id)
+implicit none
+character(len=*), intent(in)    :: rapname 
+integer,          intent(inout) :: level   
+integer                         :: id
+character(len=H_SHORT*2) :: trapname
+character(len=H_SHORT)   :: trapname2
+trapname  = trim(rapname)
+trapname2 = trim(rapname)
+do id = 1, PROF_rapnmax
+if ( trapname == PROF_rapname(id) ) then
+level = PROF_raplevel(id)
+return
+endif
+enddo
+PROF_rapnmax     = PROF_rapnmax + 1
+id               = PROF_rapnmax
+PROF_rapname(id) = trapname
+PROF_rapnstr(id) = 0
+PROF_rapnend(id) = 0
+PROF_rapttot(id) = 0.0_DP
+PROF_grpid   (id) = get_grpid(trapname2)
+PROF_raplevel(id) = level
+return
+end function get_rapid
+function get_grpid( rapname ) result(gid)
+implicit none
+character(len=*), intent(in) :: rapname 
+integer                      :: gid
+character(len=H_SHORT) :: grpname
+integer                :: idx
+idx = index(rapname," ")
+if ( idx > 1 ) then
+grpname = rapname(1:idx-1)
+else
+grpname = rapname
+endif
+do gid = 1, PROF_grpnmax
+if( grpname == PROF_grpname(gid) ) return
+enddo
+PROF_grpnmax      = PROF_grpnmax + 1
+gid               = PROF_grpnmax
+PROF_grpname(gid) = grpname
+return
+end function get_grpid
+subroutine PROF_valcheck_SP_1D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(SP),          intent(in)  :: var(:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_SP_1D
+subroutine PROF_valcheck_SP_2D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(SP),          intent(in)  :: var(:,:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_SP_2D
+subroutine PROF_valcheck_SP_3D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(SP),          intent(in)  :: var(:,:,:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_SP_3D
+subroutine PROF_valcheck_SP_4D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(SP),          intent(in)  :: var(:,:,:,:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_SP_4D
+subroutine PROF_valcheck_SP_5D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(SP),          intent(in)  :: var(:,:,:,:,:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_SP_5D
+subroutine PROF_valcheck_SP_6D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(SP),          intent(in)  :: var(:,:,:,:,:,:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_SP_6D
+subroutine PROF_valcheck_DP_1D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(DP),          intent(in)  :: var(:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_DP_1D
+subroutine PROF_valcheck_DP_2D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(DP),          intent(in)  :: var(:,:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_DP_2D
+subroutine PROF_valcheck_DP_3D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(DP),          intent(in)  :: var(:,:,:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_DP_3D
+subroutine PROF_valcheck_DP_4D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(DP),          intent(in)  :: var(:,:,:,:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_DP_4D
+subroutine PROF_valcheck_DP_5D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(DP),          intent(in)  :: var(:,:,:,:,:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_DP_5D
+subroutine PROF_valcheck_DP_6D( header, varname, var      )
+implicit none
+character(len=*),  intent(in)  :: header
+character(len=*),  intent(in)  :: varname
+real(DP),          intent(in)  :: var(:,:,:,:,:,:)
+PROF_header = trim(header)
+PROF_item   = trim(varname)
+PROF_max    = real(maxval(var),kind=DP)
+PROF_min    = real(minval(var),kind=DP)
+PROF_sum    = real(sum   (var),kind=DP)
+write(IO_FID_LOG,'(1x,A,A7,A,A16,3(A,ES24.16))') '+',PROF_header,'[',PROF_item,'] max=',PROF_max,',min=',PROF_min,',sum=',PROF_sum
+return
+end subroutine PROF_valcheck_DP_6D
+subroutine MISC_make_idstr( str, prefix, ext, numID, digit    ) 
+implicit none
+character(len=*), intent(out) :: str    
+character(len=*), intent(in)  :: prefix 
+character(len=*), intent(in)  :: ext    
+integer,          intent(in)  :: numID  
+integer, optional, intent(in) :: digit  
+character(len=128) :: rankstr
+integer            :: setdigit
+if ( NSTR_ZERO_START ) then
+write(rankstr,'(I128.128)') numID-1
+else
+write(rankstr,'(I128.128)') numID
+endif
+if ( present(digit) ) then
+setdigit = digit
+else
+setdigit = NSTR_MAX_DIGIT
+endif
+rankstr(1:setdigit) = rankstr(128-(setdigit-1):128)
+rankstr(setdigit+1:128) = ' '
+str = trim(prefix)//'.'//trim(ext)//trim(rankstr) 
+return
+end subroutine MISC_make_idstr
+function IO_get_available_fid() result(fid)                     
+implicit none
+integer :: fid
+logical :: i_opened
+do fid = min_fid,max_fid
+INQUIRE (fid, OPENED=I_OPENED)
+if(.not.I_OPENED) return
+enddo
+end function IO_get_available_fid
+function MISC_gammafunc( xx ) result(f)
+implicit none
+real(RP), intent(in) :: xx
+real(RP) :: f
+real(RP) :: coef(6)=(/ +76.18009172947146_RP, -86.50532032941677_RP, +24.01409824083091_RP, -1.231739572450155_RP, +0.1208650973866179E-2_RP, -0.5395239384953E-5_RP /)
+integer :: j
+real(RP) :: x,y,tmp,ser
+x=xx
+y=x
+tmp=x+5.5_RP
+tmp = tmp - (x+0.5)*log(tmp)
+ser=1.000000000190015_RP
+do j=1,6
+y=y+1
+ser = ser+coef(j)/y
+enddo
+f = exp(-tmp+log(2.5066282746310005_RP*ser/x))
+end function MISC_gammafunc
+subroutine ADM_proc_stop
+stop
+end subroutine ADM_proc_stop
+function ADM_MPItime() result(time)
+implicit none
+real(DP) :: time
+call cpu_time(time)
+end function ADM_MPItime
+subroutine GRD_setup
+implicit none
+integer :: k
+allocate( GRD_gz   (ADM_kall) )
+allocate( GRD_gzh  (ADM_kall) )
+allocate( GRD_dgz  (ADM_kall) )
+allocate( GRD_dgzh (ADM_kall) )
+allocate( GRD_rdgz (ADM_kall) )
+allocate( GRD_rdgzh(ADM_kall) )
+call GRD_input_vgrid(vgrid_fname)
+do k = ADM_kmin-1, ADM_kmax
+GRD_dgz(k) = GRD_gzh(k+1) - GRD_gzh(k)
+enddo
+GRD_dgz(ADM_kmax+1) = GRD_dgz(ADM_kmax)
+do k = ADM_kmin, ADM_kmax+1
+GRD_dgzh(k) = GRD_gz(k) - GRD_gz(k-1)
+enddo
+GRD_dgzh(ADM_kmin-1) = GRD_dgzh(ADM_kmin)
+do k = 1, ADM_kall
+GRD_rdgz (k) = 1.0_RP / grd_dgz(k)
+GRD_rdgzh(k) = 1.0_RP / grd_dgzh(k)
+enddo
+allocate( GRD_afact(ADM_kall) )
+allocate( GRD_bfact(ADM_kall) )
+allocate( GRD_cfact(ADM_kall) )
+allocate( GRD_dfact(ADM_kall) )
+do k = ADM_kmin, ADM_kmax+1
+GRD_afact(k) = ( GRD_gzh(k) - GRD_gz(k-1) ) / ( GRD_gz (k) - GRD_gz(k-1) )
+enddo
+GRD_afact(ADM_kmin-1) = 1.0_RP
+GRD_bfact(:) = 1.0_RP - GRD_afact(:)
+do k = ADM_kmin, ADM_kmax
+GRD_cfact(k) = ( GRD_gz (k  ) - GRD_gzh(k) ) / ( GRD_gzh(k+1) - GRD_gzh(k) )
+enddo
+GRD_cfact(ADM_kmin-1) = 1.0_RP
+GRD_cfact(ADM_kmax+1) = 0.0_RP
+GRD_dfact(:) = 1.0_RP - GRD_cfact(:)
+return
+end subroutine GRD_setup
+subroutine GRD_input_vgrid( fname  )
+implicit none
+character(len=*), intent(in) :: fname
+real(DP) :: GRD_gz_DP (ADM_kall)
+real(DP) :: GRD_gzh_DP(ADM_kall)
+integer :: num_of_layer
+integer :: fid, ierr
+fid = IO_get_available_fid()
+open( unit   = fid, file   = trim(fname), status = 'old', form   = 'unformatted', access = 'sequential', iostat = ierr           )
+if ( ierr /= 0 ) then
+write(IO_FID_LOG,*) 'xxx No vertical grid file : ', trim(fname)
+call ADM_proc_stop
+endif
+read(fid) num_of_layer
+if ( num_of_layer /= ADM_vlayer ) then
+write(IO_FID_LOG,*)          'Msg : Sub[GRD_input_vgrid]/Mod[grid]'
+write(IO_FID_LOG,*)          '   *** inconsistency in number of vertical layers.'
+call ADM_proc_stop
+endif
+read(fid) GRD_gz_DP
+read(fid) GRD_gzh_DP
+close(fid)
+GRD_gz  = real(GRD_gz_DP ,kind=RP)
+GRD_gzh = real(GRD_gzh_DP,kind=RP)
+return
+end subroutine GRD_input_vgrid
+@end scheme
+subroutine cnvvar_rhogkin_in( ijdim, kdim, rhog, rhogvx, rhogvy, rhogvz, rhogw, C2Wfact, W2Cfact, rhogkin, rhogkin_h, rhogkin_v  )
+implicit none
+integer,  intent(in)  :: ijdim
+integer,  intent(in)  :: kdim
+real(RP), intent(in)  :: rhog     (ijdim,kdim)   
+real(RP), intent(in)  :: rhogvx   (ijdim,kdim)   
+real(RP), intent(in)  :: rhogvy   (ijdim,kdim)   
+real(RP), intent(in)  :: rhogvz   (ijdim,kdim)   
+real(RP), intent(in)  :: rhogw    (ijdim,kdim)   
+real(RP), intent(in)  :: C2Wfact  (ijdim,kdim,2) 
+real(RP), intent(in)  :: W2Cfact  (ijdim,kdim,2) 
+real(RP), intent(out) :: rhogkin  (ijdim,kdim)   
+real(RP), intent(out) :: rhogkin_h(ijdim,kdim)   
+real(RP), intent(out) :: rhogkin_v(ijdim,kdim)   
+integer  :: gall, kmin, kmax
+integer  :: g, k
+@domainDependant{attribute(present, autoDom)}
+rhog, rhogvx, rhogvy, rhogvz, rhogw, C2Wfact, W2Cfact, rhogkin, rhogkin_h, rhogkin_v
+@end domainDependant
+call PROF_rapstart('CNV_rhogkin',2)
+gall = ijdim
+kmin = 2
+kmax = kdim-1
+@parallelRegion{domName(g,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+rhogkin_h(g,k) = 0.5_RP * ( rhogvx(g,k) * rhogvx(g,k) + rhogvy(g,k) * rhogvy(g,k) + rhogvz(g,k) * rhogvz(g,k) ) / rhog(g,k)
+@end parallelRegion
+@parallelRegion{domName(g), domSize(ijdim)}
+rhogkin_h(g,kmin-1) = 0.0_RP
+rhogkin_h(g,kmax+1) = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(g,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax)}
+rhogkin_v(g,k) = 0.5_RP * ( rhogw(g,k) * rhogw(g,k) ) / ( C2Wfact(g,k,1) * rhog(g,k  ) + C2Wfact(g,k,2) * rhog(g,k-1) )
+@end parallelRegion
+@parallelRegion{domName(g), domSize(ijdim)}
+rhogkin_v(g,kmin-1) = 0.0_RP
+rhogkin_v(g,kmin  ) = 0.0_RP
+rhogkin_v(g,kmax+1) = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(g,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+rhogkin(g,k) = rhogkin_h(g,k) + ( W2Cfact(g,k,1) * rhogkin_v(g,k+1) + W2Cfact(g,k,2) * rhogkin_v(g,k  ) )
+@end parallelRegion
+@parallelRegion{domName(g), domSize(ijdim)}
+rhogkin(g,kmin-1) = 0.0_RP
+rhogkin(g,kmax+1) = 0.0_RP
+@end parallelRegion
+call PROF_rapend('CNV_rhogkin',2)
+return
+end subroutine cnvvar_rhogkin_in
+end module mod_debug
+

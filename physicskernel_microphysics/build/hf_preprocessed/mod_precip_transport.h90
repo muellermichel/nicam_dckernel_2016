@@ -1,0 +1,351 @@
+
+module mod_precip_transport
+use mod_precision
+use mod_debug
+implicit none
+private
+public :: precip_transport_ini
+public :: precip_transport_new
+logical, allocatable, public :: precipitating_flag(:)
+@domainDependant{domName(nq), domSize(nqmax), attribute(host)}
+precipitating_flag
+@end domainDependant
+contains
+subroutine precip_transport_ini
+allocate(precipitating_flag(nqmax))
+precipitating_flag(:)    = .false.
+precipitating_flag(I_QR) = .true.
+precipitating_flag(I_QS) = .true.
+precipitating_flag(I_QG) = .true.
+precipitating_flag(I_QI) = .false.
+end subroutine precip_transport_ini
+subroutine precip_transport_new( ijdim, rhog, rhogvx, rhogvy, rhogvz, rhogw, rhoge, rhogq, rho, tem, pre, vx, vy, vz, w, q, qd, z, Vterm, precip, precip_rhoe, precip_lh_heat, precip_rhophi, precip_rhokin, frain, gsgam2, gsgam2h, rgs, rgsh, ix, iy, iz, jx, jy, jz, dt)
+use mod_thrmdyn, only: THRMDYN_qd_ijk, THRMDYN_tempre_ijk
+use mod_vadv1d, only: vadv1d_prep, vadv1d_getflux_new
+use mod_debug, only: kdim, kmin, kmax, CONST_GRAV, GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh, GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact, nqmax, NQW_STR, NQW_END, I_QC, I_QR, I_QI, I_QS, I_QG, CVW, LHF, PRCIP_TRN_ECORRECT
+implicit none
+integer,  intent(in)    :: ijdim
+real(RP), intent(inout) :: rhog              (ijdim,kdim)
+real(RP), intent(inout) :: rhogvx            (ijdim,kdim)
+real(RP), intent(inout) :: rhogvy            (ijdim,kdim)
+real(RP), intent(inout) :: rhogvz            (ijdim,kdim)
+real(RP), intent(inout) :: rhogw             (ijdim,kdim)
+real(RP), intent(inout) :: rhoge             (ijdim,kdim)
+real(RP), intent(inout) :: rhogq             (ijdim,kdim,nqmax)
+real(RP), intent(inout) :: rho               (ijdim,kdim)
+real(RP), intent(inout) :: tem               (ijdim,kdim)
+real(RP), intent(inout) :: pre               (ijdim,kdim)
+real(RP), intent(in)    :: vx                (ijdim,kdim)
+real(RP), intent(in)    :: vy                (ijdim,kdim)
+real(RP), intent(in)    :: vz                (ijdim,kdim)
+real(RP), intent(in)    :: w                 (ijdim,kdim)
+real(RP), intent(inout) :: q                 (ijdim,kdim,nqmax)
+real(RP), intent(out)   :: qd                (ijdim,kdim)
+real(RP), intent(in)    :: z                 (ijdim,kdim)
+real(RP), intent(in)    :: Vterm             (ijdim,kdim,nqmax)
+real(RP), intent(out)   :: precip            (ijdim,2)
+real(RP), intent(out)   :: precip_rhoe       (ijdim)
+real(RP), intent(out)   :: precip_lh_heat    (ijdim)
+real(RP), intent(out)   :: precip_rhophi     (ijdim)
+real(RP), intent(out)   :: precip_rhokin     (ijdim)
+real(RP), intent(out)   :: frain             (ijdim,kdim)
+real(RP), intent(in)    :: gsgam2            (ijdim,kdim)
+real(RP), intent(in)    :: gsgam2h           (ijdim,kdim)
+real(RP), intent(in)    :: rgs               (ijdim,kdim)
+real(RP), intent(in)    :: rgsh              (ijdim,kdim)
+real(RP), intent(in)    :: ix                (ijdim)
+real(RP), intent(in)    :: iy                (ijdim)
+real(RP), intent(in)    :: iz                (ijdim)
+real(RP), intent(in)    :: jx                (ijdim)
+real(RP), intent(in)    :: jy                (ijdim)
+real(RP), intent(in)    :: jz                (ijdim)
+real(RP), intent(in)    :: dt
+real(RP) :: rhogkin       (ijdim,kdim)
+real(RP) :: rhogkin_h     (ijdim,kdim)
+real(RP) :: rhogkin_v     (ijdim,kdim)
+real(RP) :: rhoq          (ijdim,kdim)
+real(RP) :: rhoeq         (ijdim,kdim)
+real(RP) :: rhophiq       (ijdim,kdim)
+real(RP) :: rhokin_h      (ijdim,kdim)
+real(RP) :: rhokin_v      (ijdim,kdim)
+real(RP) :: rhouq         (ijdim,kdim)
+real(RP) :: rhovq         (ijdim,kdim)
+real(RP) :: rhowq         (ijdim,kdim)
+real(RP) :: fprec_q       (ijdim,kdim)
+real(RP) :: fprec_rhoe    (ijdim,kdim)
+real(RP) :: fprec_rhophi  (ijdim,kdim)
+real(RP) :: fprec_rhokin_h(ijdim,kdim)
+real(RP) :: fprec_rhokin_v(ijdim,kdim)
+real(RP) :: fprec_rhou    (ijdim,kdim)
+real(RP) :: fprec_rhov    (ijdim,kdim)
+real(RP) :: fprec_rhow    (ijdim,kdim)
+real(RP) :: drhoq         (ijdim,kdim,nqmax)
+real(RP) :: drhoe         (ijdim,kdim)
+real(RP) :: drhophi       (ijdim,kdim)
+real(RP) :: drhokin_h     (ijdim,kdim)
+real(RP) :: drhokin_v     (ijdim,kdim)
+real(RP) :: drhogu        (ijdim,kdim)
+real(RP) :: drhogv        (ijdim,kdim)
+real(RP) :: drhogw        (ijdim,kdim)
+real(RP) :: kin_h0        (ijdim,kdim)
+real(RP) :: kin_h         (ijdim,kdim)
+real(RP) :: vx_t          (ijdim,kdim)
+real(RP) :: vy_t          (ijdim,kdim)
+real(RP) :: vz_t          (ijdim,kdim)
+real(RP) :: kin_v0        (ijdim,kdim)
+real(RP) :: kin_v         (ijdim,kdim)
+real(RP) :: w_t           (ijdim,kdim)
+real(RP) :: zdis0         (ijdim,kdim)
+integer  :: kcell         (ijdim,kdim)
+integer  :: kcell_max     (kdim)
+integer  :: kcell_min     (kdim)
+real(RP) :: zdis0h        (ijdim,kdim)
+integer  :: kcellh        (ijdim,kdim)
+integer  :: kcellh_max    (kdim)
+integer  :: kcellh_min    (kdim)
+real(RP) :: Vtermq        (ijdim,kdim)
+real(RP) :: Vtermh        (ijdim,kdim)
+real(RP) :: qh            (ijdim,kdim)
+real(RP) :: rhogh         (ijdim,kdim)
+real(RP) :: ein           (ijdim,kdim)
+real(RP) :: tmp           (ijdim,kdim)
+real(RP) :: tmp_h         (ijdim,kdim)
+real(RP) :: tmp_v         (ijdim,kdim)
+real(RP) :: tmp2          (ijdim,kdim)
+real(RP) :: C2Wfact       (ijdim,kdim,2)
+real(RP) :: W2Cfact       (ijdim,kdim,2)
+real(RP) :: GRD_gz_shift  (kdim)
+real(RP) :: GRAV
+integer  :: ij, k, nq
+@domainDependant{attribute(host, autoDom)}
+precipitating_flag
+@end domainDependant
+@domainDependant{attribute(present, autoDom)}
+rhog, rhogvx, rhogvy, rhogvz, rhogw, rhoge, rhogq, rho, tem, pre, vx, vy, vz, w, q, qd, z, Vterm,
+precip, precip_rhoe, precip_lh_heat, precip_rhophi, precip_rhokin, frain, gsgam2, gsgam2h, rgs, rgsh, ix, iy, iz, jx, jy, jz,
+rhogkin, rhogkin_h, rhogkin_v, rhoq, rhoeq, rhophiq, rhokin_h, rhokin_v, rhouq, rhovq, rhowq,
+fprec_q, fprec_rhoe, fprec_rhophi, fprec_rhokin_h, fprec_rhokin_v, fprec_rhou, fprec_rhov, fprec_rhow,
+drhoq, drhoe, drhophi, drhokin_h, drhokin_v, drhogu, drhogv, drhogw, kin_h0, kin_h,
+vx_t, vy_t, vz_t, kin_v0, kin_v, w_t, zdis0, kcell, kcell_max, kcell_min, zdis0h,
+kcellh, kcellh_max, kcellh_min, Vtermq, Vtermh, qh, rhogh, ein, tmp, tmp_h, tmp_v, tmp2, C2Wfact, W2Cfact, GRD_gz_shift
+GRD_gz, GRD_gzh, GRD_dgz, GRD_dgzh, GRD_rdgz, GRD_rdgzh,
+GRD_afact, GRD_bfact, GRD_cfact, GRD_dfact, CVW
+@end domainDependant
+call PROF_rapstart('____Precipitation')
+GRAV = CONST_GRAV
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax+1)}
+C2Wfact(ij,k,1) = GRD_afact(k) / GSGAM2(ij,k  ) * GSGAM2H(ij,k)
+C2Wfact(ij,k,2) = GRD_bfact(k) / GSGAM2(ij,k-1) * GSGAM2H(ij,k)
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+C2Wfact(ij,kmin-1,1) = 0.0_RP
+C2Wfact(ij,kmin-1,2) = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin-1), endAt(ijdim,kmax)}
+W2Cfact(ij,k,1) = GRD_cfact(k) * GSGAM2(ij,k) / GSGAM2H(ij,k+1)
+W2Cfact(ij,k,2) = GRD_dfact(k) * GSGAM2(ij,k) / GSGAM2H(ij,k  )
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+W2Cfact(ij,kmax+1,1) = 0.0_RP
+W2Cfact(ij,kmax+1,2) = 0.0_RP
+@end parallelRegion
+call cnvvar_rhogkin_in( ijdim, kdim, rhog     (:,:), rhogvx   (:,:), rhogvy   (:,:), rhogvz   (:,:), rhogw    (:,:), C2Wfact  (:,:,:), W2Cfact  (:,:,:), rhogkin  (:,:), rhogkin_h(:,:), rhogkin_v(:,:)    ) 
+@parallelRegion{domName(k), domSize(kdim), startAt(kmin), endAt(kmax+1)}
+GRD_gz_shift(k) = GRD_gz(k-1)
+@end parallelRegion
+@parallelRegion{domName(ij,k,nq), domSize(ijdim,kdim,nqmax)}
+drhoq(ij,k,nq) = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+drhoe    (ij,k) = 0.0_RP
+drhophi  (ij,k) = 0.0_RP
+drhokin_h(ij,k) = 0.0_RP
+drhokin_v(ij,k) = 0.0_RP
+drhogu   (ij,k) = 0.0_RP
+drhogv   (ij,k) = 0.0_RP
+drhogw   (ij,k) = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+precip        (ij,1) = 0.0_RP
+precip        (ij,2) = 0.0_RP
+precip_rhoe   (ij)   = 0.0_RP
+precip_lh_heat(ij)   = 0.0_RP
+precip_rhophi (ij)   = 0.0_RP
+precip_rhokin (ij)   = 0.0_RP
+@end parallelRegion
+do nq = 1, nqmax
+if( .NOT. precipitating_flag(nq) ) cycle
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+Vtermq(ij,k) = Vterm(ij,k,nq)
+@end parallelRegion
+call vadv1d_prep( ijdim, kdim, kmin, kmax, GRD_dgz  (:), GRD_gzh  (:), Vtermq    (:,:), zdis0    (:,:), kcell    (:,:), kcell_max(:), kcell_min(:), dt                       ) 
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+rhoq(ij,k) = rhogq(ij,k,nq) * rgs(ij,k)
+@end parallelRegion
+call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, GRD_dgz  (:), rhoq     (:,:), zdis0    (:,:), kcell    (:,:), kcell_max(:), kcell_min(:), fprec_q  (:,:)           ) 
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+drhoq(ij,k,nq) = -( fprec_q(ij,k+1)-fprec_q(ij,k) ) * GRD_rdgz(k)
+@end parallelRegion
+if (       nq >= NQW_STR .AND. nq <= NQW_END ) then
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+rhoeq   (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * CVW(nq) * tem(ij,k)
+rhophiq (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * GRAV * z(ij,k)
+rhokin_h(ij,k) =     q(ij,k,nq) * rgs(ij,k) * rhogkin_h(ij,k)
+rhouq   (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * ( vx(ij,k) * ix(ij) + vy(ij,k) * iy(ij) + vz(ij,k) * iz(ij) )
+rhovq   (ij,k) = rhogq(ij,k,nq) * rgs(ij,k) * ( vx(ij,k) * jx(ij) + vy(ij,k) * jy(ij) + vz(ij,k) * jz(ij) )
+@end parallelRegion
+call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, GRD_dgz  (:), rhoeq    (:,:), zdis0    (:,:), kcell    (:,:), kcell_max(:), kcell_min(:), fprec_rhoe(:,:)          )
+call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, GRD_dgz  (:), rhophiq  (:,:), zdis0    (:,:), kcell    (:,:), kcell_max(:), kcell_min(:), fprec_rhophi(:,:)        )
+call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, GRD_dgz  (:), rhokin_h (:,:), zdis0    (:,:), kcell    (:,:), kcell_max(:), kcell_min(:), fprec_rhokin_h(:,:)      )
+call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, GRD_dgz  (:), rhouq    (:,:), zdis0    (:,:), kcell    (:,:), kcell_max(:), kcell_min(:), fprec_rhou(:,:)          )
+call vadv1d_getflux_new( ijdim, kdim, kmin, kmax, GRD_dgz  (:), rhovq    (:,:), zdis0    (:,:), kcell    (:,:), kcell_max(:), kcell_min(:), fprec_rhov(:,:)          )
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+drhoe    (ij,k) = drhoe    (ij,k) -( fprec_rhoe    (ij,k+1)-fprec_rhoe    (ij,k) ) * GRD_rdgz(k)
+drhophi  (ij,k) = drhophi  (ij,k) -( fprec_rhophi  (ij,k+1)-fprec_rhophi  (ij,k) ) * GRD_rdgz(k)
+drhokin_h(ij,k) = drhokin_h(ij,k) -( fprec_rhokin_h(ij,k+1)-fprec_rhokin_h(ij,k) ) * GRD_rdgz(k)
+drhogu   (ij,k) = drhogu   (ij,k) -( fprec_rhou    (ij,k+1)-fprec_rhou    (ij,k) ) * GRD_rdgz(k)
+drhogv   (ij,k) = drhogv   (ij,k) -( fprec_rhov    (ij,k+1)-fprec_rhov    (ij,k) ) * GRD_rdgz(k)
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax-1)}
+Vtermh(ij,k) = 0.5_RP * ( Vterm(ij,k,nq) + Vterm(ij,k-1,nq) )
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+Vtermh(ij,kmin-1) = 0.0_RP
+Vtermh(ij,kmin  ) = 0.0_RP
+Vtermh(ij,kmax  ) = 0.0_RP
+Vtermh(ij,kmax+1) = 0.0_RP
+@end parallelRegion
+call vadv1d_prep( ijdim, kdim, kmin+1, kmax, GRD_dgzh    (:), GRD_gz_shift(:), Vtermh      (:,:), zdis0h      (:,:), kcellh      (:,:), kcellh_max  (:), kcellh_min  (:), dt                         )
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax)}
+qh(ij,k) = 0.5_RP * ( q(ij,k,nq) + q(ij,k-1,nq) ) * rgsh(ij,k)
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+qh(ij,kmin-1) = 0.0_RP
+qh(ij,kmin  ) = 0.0_RP
+qh(ij,kmax+1) = 0.0_RP
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax)}
+rhokin_v(ij,k) = qh(ij,k) * rhogkin_v(ij,k)
+rhowq   (ij,k) = qh(ij,k) * rhogw    (ij,k)
+@end parallelRegion
+call vadv1d_getflux_new( ijdim, kdim, kmin+1, kmax, GRD_dgzh  (:), rhokin_v  (:,:), zdis0h    (:,:), kcellh    (:,:), kcellh_max(:), kcellh_min(:), fprec_rhokin_v(:,:)        )
+call vadv1d_getflux_new( ijdim, kdim, kmin+1, kmax, GRD_dgzh  (:), rhowq     (:,:), zdis0h    (:,:), kcellh    (:,:), kcellh_max(:), kcellh_min(:), fprec_rhow(:,:)            )
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin+1), endAt(ijdim,kmax)}
+drhokin_v(ij,k) = drhokin_v(ij,k) -( fprec_rhokin_v(ij,k)-fprec_rhokin_v(ij,k-1) ) * GRD_rdgzh(k)
+drhogw   (ij,k) = drhogw   (ij,k) -( fprec_rhow    (ij,k)-fprec_rhow    (ij,k-1) ) * GRD_rdgzh(k)
+@end parallelRegion
+if ( nq == I_QC ) then
+@parallelRegion{domName(ij), domSize(ijdim)}
+precip(ij,1) = precip(ij,1) - fprec_q(ij,kmin) / dt
+@end parallelRegion
+elseif( nq == I_QR ) then
+@parallelRegion{domName(ij), domSize(ijdim)}
+precip(ij,1) = precip(ij,1) - fprec_q(ij,kmin) / dt
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+frain(ij,k) = -fprec_q(ij,k) / dt
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+frain(ij,kmin-1) = 0.0_RP
+frain(ij,kmax+1) = 0.0_RP
+@end parallelRegion
+elseif( nq == I_QI .OR. nq == I_QS .OR. nq == I_QG ) then
+@parallelRegion{domName(ij), domSize(ijdim)}
+precip(ij,2) = precip(ij,2) - fprec_q(ij,kmin) / dt
+precip_lh_heat(ij) = precip_lh_heat(ij) + fprec_q(ij,kmin) * LHF / dt
+@end parallelRegion
+endif
+@parallelRegion{domName(ij), domSize(ijdim)}
+precip_rhoe  (ij) = precip_rhoe  (ij) - fprec_rhoe    (ij,kmin) / dt
+precip_rhophi(ij) = precip_rhophi(ij) - fprec_rhophi  (ij,kmin) / dt
+precip_rhokin(ij) = precip_rhokin(ij) - fprec_rhokin_h(ij,kmin) / dt - fprec_rhokin_v(ij,kmin) / dt
+@end parallelRegion
+endif
+enddo 
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+rhoge    (ij,k) = rhoge    (ij,k) + drhoe    (ij,k) + drhophi(ij,k)
+rhogkin_h(ij,k) = rhogkin_h(ij,k) + drhokin_h(ij,k)
+rhogkin_v(ij,k) = rhogkin_v(ij,k) + drhokin_v(ij,k)
+rhogvx   (ij,k) = rhogvx   (ij,k) + drhogu   (ij,k) * ix(ij) + drhogv(ij,k) * jx(ij)
+rhogvy   (ij,k) = rhogvy   (ij,k) + drhogu   (ij,k) * iy(ij) + drhogv(ij,k) * jy(ij)
+rhogvz   (ij,k) = rhogvz   (ij,k) + drhogu   (ij,k) * iz(ij) + drhogv(ij,k) * jz(ij)
+rhogw    (ij,k) = rhogw    (ij,k) + drhogw   (ij,k)
+@end parallelRegion
+do nq = 1, nqmax
+if ( nq >= NQW_STR .AND. nq <= NQW_END ) then
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+rhogq(ij,k,nq) = rhogq(ij,k,nq) + drhoq(ij,k,nq)
+rhog (ij,k)    = rhog (ij,k)    + drhoq(ij,k,nq)
+rhoge(ij,k)    = rhoge(ij,k)    - drhoq(ij,k,nq) * GRAV * z(ij,k)
+@end parallelRegion
+else
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+rhogq(ij,k,nq) = rhogq(ij,k,nq) + drhoq(ij,k,nq)
+@end parallelRegion
+endif
+enddo
+if ( PRCIP_TRN_ECORRECT == 'KIN2EIN' ) then
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+tmp2(ij,k) = rhogkin_h(ij,k) + ( W2Cfact(ij,k,1) * rhogkin_v(ij,k+1) + W2Cfact(ij,k,2) * rhogkin_v(ij,k  ) )
+@end parallelRegion
+@parallelRegion{domName(ij), domSize(ijdim)}
+tmp2(ij,kmin-1) = 0.0_RP
+tmp2(ij,kmax+1) = 0.0_RP
+@end parallelRegion
+call cnvvar_rhogkin_in( ijdim, kdim, rhog   (:,:), rhogvx (:,:), rhogvy (:,:), rhogvz (:,:), rhogw  (:,:), C2Wfact(:,:,:), W2Cfact(:,:,:), tmp    (:,:), tmp_h  (:,:), tmp_v  (:,:)    ) 
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+rhoge(ij,k) = rhoge(ij,k) + ( tmp2(ij,k) - tmp(ij,k) )
+@end parallelRegion
+elseif( PRCIP_TRN_ECORRECT == 'KIN2KIN' ) then
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+kin_h0(ij,k) = rhogkin_h(ij,k) / rhog(ij,k)
+vx_t  (ij,k) = rhogvx   (ij,k) / rhog(ij,k)
+vy_t  (ij,k) = rhogvy   (ij,k) / rhog(ij,k)
+vz_t  (ij,k) = rhogvz   (ij,k) / rhog(ij,k)
+kin_h (ij,k) = 0.5_RP * ( vx_t(ij,k)*vx_t(ij,k) + vy_t(ij,k)*vy_t(ij,k) + vz_t(ij,k)*vz_t(ij,k) )
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+if ( kin_h(ij,k) > 1.E-20_RP ) then
+vx_t(ij,k) = vx_t(ij,k) * sqrt( abs( kin_h0(ij,k) / kin_h(ij,k) ) )
+vy_t(ij,k) = vy_t(ij,k) * sqrt( abs( kin_h0(ij,k) / kin_h(ij,k) ) )
+vz_t(ij,k) = vz_t(ij,k) * sqrt( abs( kin_h0(ij,k) / kin_h(ij,k) ) )
+endif
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax)}
+rhogvx(ij,k) = vx_t(ij,k) * rhog(ij,k)
+rhogvy(ij,k) = vy_t(ij,k) * rhog(ij,k)
+rhogvz(ij,k) = vz_t(ij,k) * rhog(ij,k)
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax+1)}
+rhogh(ij,k) = ( C2Wfact(ij,k,1) * rhog(ij,k  ) + C2Wfact(ij,k,2) * rhog(ij,k-1) )
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax+1)}
+kin_v0(ij,k) = rhogkin_v(ij,k) / rhogh(ij,k)
+w_t   (ij,k) = rhogw    (ij,k) / rhogh(ij,k)
+kin_v (ij,k) = 0.5_RP * w_t(ij,k)**2
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax+1)}
+if ( kin_v(ij,k) > 1.E-20_RP ) then
+w_t(ij,k) = w_t(ij,k) * sqrt( abs( kin_v0(ij,k) / kin_v(ij,k) ) )
+endif
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim), startAt(1,kmin), endAt(ijdim,kmax+1)}
+rhogw(ij,k) = w_t(ij,k) * rhogh(ij,k)
+@end parallelRegion
+else
+write(*,*) 'Error in PRCIP_TRN_ECORRECT: ', trim(PRCIP_TRN_ECORRECT)
+endif
+@parallelRegion{domName(ij,k,nq), domSize(ijdim,kdim,nqmax)}
+q(ij,k,nq) = rhogq(ij,k,nq) / rhog(ij,k)
+@end parallelRegion
+@parallelRegion{domName(ij,k), domSize(ijdim,kdim)}
+rho(ij,k) = rhog (ij,k) / gsgam2(ij,k)
+ein(ij,k) = rhoge(ij,k) / rhog(ij,k)
+@end parallelRegion
+call THRMDYN_qd_ijk( ijdim, kdim, q (:,:,:), qd(:,:)    ) 
+call THRMDYN_tempre_ijk( ijdim, kdim, ein(:,:), rho(:,:), q  (:,:,:), tem(:,:), pre(:,:)    ) 
+call PROF_rapend  ('____Precipitation')
+return
+end subroutine precip_transport_new
+end module mod_precip_transport
+
