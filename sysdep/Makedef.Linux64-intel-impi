@@ -23,7 +23,7 @@ CFLAGS = -O3 -xHost -ip -mcmodel=medium
 ##### Special Options #####
 
 ifeq ($(ENABLE_OPENMP),T)
-	FFLAGS += -openmp -openmp-report
+	FFLAGS += -qopenmp
 endif
 
 ###########################
