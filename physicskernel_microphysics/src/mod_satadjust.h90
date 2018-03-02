@@ -1446,6 +1446,34 @@ contains
     return
   end subroutine SATURATION_adjustment
 
+  @scheme{name(REDUCTION_SUPPORT)}
+  subroutine all_true(ijdim, kdim, logic_array, result)
+    implicit none
+    integer,  intent(in)    :: ijdim
+    integer,  intent(in)    :: kdim
+    logical, intent(in) :: logic_array (ijdim,kdim)
+    logical, intent(out) :: result
+    integer(4) :: num_true
+
+    @domainDependant{attribute(autoDom, present)}
+    logic_array
+    @end domainDependant
+
+    num_true = 0
+    @parallelRegion{domName(ij,k), domSize(ijdim,kdim), reduction(+:num_true)}
+    if (logic_array(ij,k)) then
+      num_true = num_true + 1
+    end if
+    @end parallelRegion
+
+    result = .false.
+
+    if (num_true == size(logic_array)) then
+      result = .true.
+    end if
+  end subroutine all_true
+  @end scheme
+
   !-----------------------------------------------------------------------------
   subroutine satadjust_all( &
        ijdim,  &
@@ -1500,11 +1528,11 @@ contains
     real(RP) :: dtemp_criteria
     integer,  parameter :: itelim = 100
 
-    logical  :: converged
+    logical  :: converged(ijdim,kdim), all_converged
     integer  :: ij, k, nq, ite
 
     @domainDependant{attribute(present, autoDom)}
-    rho, Emoist, qsum, tem, q, qd, CVW
+    rho, Emoist, qsum, tem, q, qd, CVW, converged
     @end domainDependant
     !---------------------------------------------------------------------------
 
@@ -1544,7 +1572,7 @@ contains
        qsat  = psat  / ( rho(ij,k) * Rvap * tem(ij,k) )
 
        if ( qsum(ij,k)-qsat > EPS ) then
-          converged = .false.
+          converged(ij,k) = .false.
 
           do ite = 1, itelim
 
@@ -1602,21 +1630,26 @@ contains
              tem(ij,k)  = tem(ij,k) - dtemp
 
              if ( abs(dtemp) < dtemp_criteria ) then
-                converged = .true.
+                converged(ij,k) = .true.
                 exit
              endif
 
              if( tem(ij,k)*0.0_RP /= 0.0_RP) exit
           enddo
-
-          if ( .NOT. converged ) then
-             print *, rho(ij,k),tem(ij,k),q(ij,k,I_QV),q(ij,k,I_QC),q(ij,k,I_QI)
-             print *, 'xxx [satadjust_all] not converged! dtemp=', dtemp,ij,k,ite
-             ! call ADM_proc_stop
-          endif
-
+       else
+          converged(ij,k) = .true.
        endif
     @end parallelRegion
+
+    call all_true(ijdim, kdim, converged, all_converged)
+
+    if ( .NOT. all_converged ) then
+       ! print *, rho(ij,k),tem(ij,k),q(ij,k,I_QV),q(ij,k,I_QC),q(ij,k,I_QI)
+       print *, 'xxx [satadjust_all] not converged!'
+       ! dtemp=', dtemp,ij,k,ite
+       stop
+       ! call ADM_proc_stop
+    endif
 
     ! enddo
     ! enddo
@@ -1677,7 +1710,7 @@ contains
     real(RP) :: dtemp_criteria
     integer,  parameter :: itelim = 100
 
-    logical  :: converged
+    logical  :: converged(ijdim,kdim), all_converged
     integer  :: ij, k, nq, ite
 
     @domainDependant{attribute(present, autoDom)}
@@ -1714,7 +1747,7 @@ contains
        qsat = psat / ( rho(ij,k) * Rvap * tem(ij,k) )
 
        if ( qsum(ij,k)-qsat > EPS ) then
-          converged = .false.
+          converged(ij,k) = .false.
 
           do ite = 1, itelim
 
@@ -1749,22 +1782,27 @@ contains
              tem(ij,k) = tem(ij,k) - dtemp
 
              if ( abs(dtemp) < dtemp_criteria ) then
-                converged = .true.
+                converged(ij,k) = .true.
                 exit
              endif
 
              if( tem(ij,k)*0.0_RP /= 0.0_RP) exit
           enddo
-
-          if ( .NOT. converged ) then
-             print *, rho(ij,k),tem(ij,k),q(ij,k,I_QV),q(ij,k,I_QC)
-             print *, 'xxx [satadjust_liq] not converged! dtemp=', dtemp,ij,k,ite
-             ! call ADM_proc_stop
-          endif
-
+       else
+          converged(ij,k) = .true.
        endif
 
     @end parallelRegion
+
+    call all_true(ijdim, kdim, converged, all_converged)
+
+    if ( .NOT. all_converged ) then
+       ! print *, rho(ij,k),tem(ij,k),q(ij,k,I_QV),q(ij,k,I_QC),q(ij,k,I_QI)
+       print *, 'xxx [satadjust_liq] not converged!'
+       ! dtemp=', dtemp,ij,k,ite
+       stop
+       ! call ADM_proc_stop
+    endif
 
     ! enddo
     ! enddo
