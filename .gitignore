@@ -30,4 +30,6 @@ build
 
 *.pe000000
 
+*build
+
 sftp-config.json
